@@ -1,33 +1,30 @@
 import reflex as rx
 from datetime import datetime
 from typing import Optional
-from sqlmodel import Field, Relationship, SQLModel
 
 
-class AlertRule(SQLModel, table=True):
-    """Database model for defining alert rules."""
+class AlertRule(rx.Base):
+    """Data model for defining alert rules."""
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[int] = None
     name: str
-    parameters: str = Field(default="{}", description="JSON string of rule parameters")
-    importance: str = Field(default="medium")
-    period_seconds: int = Field(default=60)
-    action_config: str = Field(default="{}", description="Configuration for actions")
+    parameters: str = "{}"
+    importance: str = "medium"
+    period_seconds: int = 60
+    action_config: str = "{}"
     comment: Optional[str] = None
-    is_active: bool = Field(default=True)
-    events: list["AlertEvent"] = Relationship(back_populates="rule")
+    is_active: bool = True
 
 
-class AlertEvent(SQLModel, table=True):
-    """Database model for recorded alert events."""
+class AlertEvent(rx.Base):
+    """Data model for recorded alert events."""
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    rule_id: int = Field(foreign_key="alertrule.id")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    id: Optional[int] = None
+    rule_id: int
+    timestamp: datetime
     message: str
     importance: str
-    is_acknowledged: bool = Field(default=False)
+    is_acknowledged: bool = False
     acknowledged_timestamp: Optional[datetime] = None
     action_taken: Optional[str] = None
     comment: Optional[str] = None
-    rule: AlertRule = Relationship(back_populates="events")
