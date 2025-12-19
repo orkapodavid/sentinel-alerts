@@ -1,10 +1,10 @@
 # Events and Alerts Management System
 
 ## Phase 1: Database Models & Mock Generator ✅
-- [ ] Create SQLModel database models (AlertRule, AlertEvent) with proper relationships
-- [ ] Implement JSON-aware mock generator function that parses parameters
-- [ ] Set up basic State class with database initialization
-- [ ] Create app shell with sidebar + content layout
+- [x] Create SQLModel database models (AlertRule, AlertEvent) with proper relationships
+- [x] Implement JSON-aware mock generator function that parses parameters
+- [x] Set up basic State class with database initialization
+- [x] Create app shell with sidebar + content layout
 
 ## Phase 2: Alert Rules Management UI
 - [ ] Build Alert Rules list view with data table showing all rules
