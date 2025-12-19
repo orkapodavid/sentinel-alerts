@@ -1,13 +1,12 @@
 import reflex as rx
-from sqlmodel import Field, SQLModel
 from datetime import datetime
 from typing import Optional
 
 
-class AlertRule(SQLModel, table=True):
+class AlertRule(rx.Base):
     """Data model for defining alert rules."""
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[int] = None
     name: str
     parameters: str = "{}"
     importance: str = "medium"
@@ -17,12 +16,12 @@ class AlertRule(SQLModel, table=True):
     is_active: bool = True
 
 
-class AlertEvent(SQLModel, table=True):
+class AlertEvent(rx.Base):
     """Data model for recorded alert events."""
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    rule_id: int = Field(foreign_key="alertrule.id")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    id: Optional[int] = None
+    rule_id: int
+    timestamp: Optional[datetime] = None
     message: str
     importance: str
     is_acknowledged: bool = False
