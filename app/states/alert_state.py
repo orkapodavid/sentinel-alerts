@@ -2,7 +2,7 @@ import reflex as rx
 import json
 import random
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.models import AlertRule, AlertEvent
 
 
@@ -15,6 +15,74 @@ class AlertState(rx.State):
     active_rules_count: int = 0
     total_events: int = 0
     unacknowledged_events: int = 0
+    current_time: datetime = datetime.utcnow()
+    selected_event_id: int = -1
+    acknowledgement_comment: str = ""
+
+    @rx.var
+    def displayed_events(self) -> list[AlertEvent]:
+        """
+        Filter and sort events for the Live Blotter.
+        Filter Logic:
+           - Serious/High importance: Show until is_acknowledged is True
+           - Medium/Low importance: Show only if timestamp is within last 24 hours
+        Sorting:
+           - Primary: Importance (Serious=4, High=3, Med=2, Low=1)
+           - Secondary: Timestamp (Descending)
+        """
+        filtered = []
+        cutoff = self.current_time - timedelta(hours=24)
+        importance_map = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+        for event in self.events:
+            keep = False
+            imp = event.importance.lower()
+            ts = event.timestamp if event.timestamp else datetime.min
+            if imp in ["critical", "high"]:
+                if not event.is_acknowledged:
+                    keep = True
+            elif ts >= cutoff:
+                keep = True
+            if keep:
+                filtered.append(event)
+
+        @rx.event
+        def sort_key(e: AlertEvent):
+            imp_score = importance_map.get(e.importance.lower(), 0)
+            ts = e.timestamp if e.timestamp else datetime.min
+            return (imp_score, ts)
+
+        return sorted(filtered, key=sort_key, reverse=True)
+
+    @rx.event
+    def tick(self, _=None):
+        """Update current time to refresh relative timestamps."""
+        self.current_time = datetime.utcnow()
+
+    @rx.event
+    def open_acknowledge_modal(self, event_id: int):
+        """Open the acknowledgment modal for a specific event."""
+        self.selected_event_id = event_id
+        self.acknowledgement_comment = ""
+
+    @rx.event
+    def cancel_acknowledgement(self):
+        """Close the modal without saving."""
+        self.selected_event_id = -1
+
+    @rx.event
+    def submit_acknowledgement(self):
+        """Mark event as acknowledged and save comment."""
+        if self.selected_event_id != -1:
+            new_events = []
+            for e in self.events:
+                if e.id == self.selected_event_id:
+                    e.is_acknowledged = True
+                    e.acknowledged_timestamp = datetime.utcnow()
+                    e.comment = self.acknowledgement_comment
+                new_events.append(e)
+            self.events = new_events
+            self.selected_event_id = -1
+            self._update_stats()
 
     def _update_stats(self):
         """Update summary statistics from the in-memory lists."""

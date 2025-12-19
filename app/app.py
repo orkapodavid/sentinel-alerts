@@ -1,5 +1,6 @@
 import reflex as rx
 from app.components.sidebar import sidebar
+from app.components.live_blotter import live_blotter
 from app.states.alert_state import AlertState
 
 
@@ -75,21 +76,7 @@ def index() -> rx.Component:
                 ),
                 class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8",
             ),
-            rx.el.div(
-                rx.el.div(
-                    rx.icon("construction", class_name="w-12 h-12 text-gray-300 mb-4"),
-                    rx.el.h3(
-                        "Dashboard Content Area",
-                        class_name="text-lg font-medium text-gray-900",
-                    ),
-                    rx.el.p(
-                        "Detailed charts and graphs will be implemented in Phase 3.",
-                        class_name="text-gray-500 text-sm mt-1",
-                    ),
-                    class_name="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-gray-300",
-                ),
-                class_name="w-full",
-            ),
+            live_blotter(),
         )
     )
 
