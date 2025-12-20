@@ -195,6 +195,7 @@ class AlertState(rx.State):
                     keep = True
             if keep:
                 status_text = "Acknowledged" if event.is_acknowledged else "Pending"
+                action_label = "✅" if event.is_acknowledged else "ACKNOWLEDGE"
                 data.append(
                     {
                         "id": event.id,
@@ -205,9 +206,21 @@ class AlertState(rx.State):
                         "message": event.message,
                         "status": status_text,
                         "is_acknowledged": event.is_acknowledged,
+                        "action_label": action_label,
                     }
                 )
         return data
+
+    @rx.event
+    def handle_live_grid_cell_clicked(self, cell_event: dict):
+        """Handle clicks on the AG Grid cells."""
+        col_id = cell_event.get("colDef", {}).get("field")
+        row_data = cell_event.get("data", {})
+        if col_id == "action_label":
+            if not row_data.get("is_acknowledged"):
+                event_id = row_data.get("id")
+                if event_id:
+                    self.open_acknowledge_modal(event_id)
 
     @rx.var
     def live_events_count(self) -> int:

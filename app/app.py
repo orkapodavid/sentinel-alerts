@@ -1,4 +1,5 @@
 import reflex as rx
+import reflex_enterprise as rxe
 from app.components.sidebar import sidebar
 from app.components.live_blotter import live_blotter
 from app.components.rule_settings import rules_layout
@@ -132,7 +133,7 @@ def events_page() -> rx.Component:
     )
 
 
-app = rx.App(
+app = rxe.App(
     theme=rx.theme(appearance="light"),
     head_components=[
         rx.el.link(
