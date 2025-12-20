@@ -393,35 +393,75 @@ class AlertState(rx.State):
         if self.history_page > 1:
             self.history_page -= 1
 
+    live_sort_col: str = "timestamp"
+    live_sort_reverse: bool = True
+    live_page: int = 1
+    live_page_size: int = 10
+
     @rx.var
-    def ag_grid_events(self) -> list[dict]:
-        """Data prepared for the Live Blotter AG Grid."""
-        data = []
-        for e in self.displayed_events:
-            data.append(
-                {
-                    "id": e.id,
-                    "timestamp": e.timestamp.strftime("%H:%M:%S")
-                    if e.timestamp
-                    else "",
-                    "importance": e.importance,
-                    "message": e.message,
-                    "is_acknowledged": e.is_acknowledged,
-                    "comment": e.comment,
-                    "action_label": "Acknowledged"
-                    if e.is_acknowledged
-                    else "Acknowledge",
-                }
-            )
-        return data
+    def live_events_sorted(self) -> list[AlertEvent]:
+        """Return sorted live events."""
+        events = self.displayed_events
+        importance_map = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+
+        @rx.event
+        def get_sort_key(e: AlertEvent):
+            val = getattr(e, self.live_sort_col, None)
+            if self.live_sort_col == "importance":
+                return importance_map.get(str(val).lower(), 0)
+            if self.live_sort_col == "timestamp":
+                return val if val else datetime.min
+            return str(val) if val else ""
+
+        return sorted(events, key=get_sort_key, reverse=self.live_sort_reverse)
+
+    @rx.var
+    def live_events_paginated(self) -> list[AlertEvent]:
+        """Paginated slice of live events."""
+        start = (self.live_page - 1) * self.live_page_size
+        return self.live_events_sorted[start : start + self.live_page_size]
+
+    @rx.var
+    def live_total_pages(self) -> int:
+        """Total pages for live blotter."""
+        count = len(self.displayed_events)
+        return math.ceil(count / self.live_page_size) if count > 0 else 1
+
+    @rx.var
+    def live_start_index(self) -> int:
+        """Live display start index."""
+        if len(self.displayed_events) == 0:
+            return 0
+        return (self.live_page - 1) * self.live_page_size + 1
+
+    @rx.var
+    def live_end_index(self) -> int:
+        """Live display end index."""
+        end = self.live_page * self.live_page_size
+        return min(end, len(self.displayed_events))
 
     @rx.event
-    def handle_ag_grid_action(self, cell_data: dict):
-        """Handle clicks in the AG Grid."""
-        if cell_data.get("colId") == "action_label":
-            row_data = cell_data.get("data", {})
-            if not row_data.get("is_acknowledged"):
-                self.open_acknowledge_modal(row_data["id"])
+    def sort_live(self, col: str):
+        """Sort live blotter by column."""
+        if self.live_sort_col == col:
+            self.live_sort_reverse = not self.live_sort_reverse
+        else:
+            self.live_sort_col = col
+            self.live_sort_reverse = (
+                True if col in ["timestamp", "importance"] else False
+            )
+
+    @rx.event
+    def next_live_page(self):
+        """Next live page."""
+        if self.live_page < self.live_total_pages:
+            self.live_page += 1
+
+    @rx.event
+    def prev_live_page(self):
+        """Previous live page."""
+        if self.live_page > 1:
+            self.live_page -= 1
 
     @rx.event(background=True)
     async def on_load(self):
