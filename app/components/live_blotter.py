@@ -108,17 +108,24 @@ def live_blotter() -> rx.Component:
                 class_name="flex justify-between items-center p-6 border-b border-gray-100",
             ),
             rx.el.div(
-                rxe.ag_grid(
-                    id="live_blotter_grid",
-                    column_defs=column_defs,
-                    row_data=AlertState.all_live_events,
-                    pagination=True,
-                    pagination_page_size=10,
-                    pagination_page_size_selector=[10, 25, 50],
-                    on_cell_clicked=AlertState.handle_live_grid_cell_clicked,
-                    width="100%",
-                    height="500px",
-                    theme="quartz",
+                rx.cond(
+                    AlertState.is_grid_ready,
+                    rxe.ag_grid(
+                        id="live_blotter_grid",
+                        column_defs=column_defs,
+                        row_data=AlertState.all_live_events,
+                        pagination=True,
+                        pagination_page_size=10,
+                        pagination_page_size_selector=[10, 25, 50],
+                        on_cell_clicked=AlertState.handle_live_grid_cell_clicked,
+                        width="100%",
+                        height="500px",
+                        theme="quartz",
+                    ),
+                    rx.el.div(
+                        rx.spinner(),
+                        class_name="h-[500px] w-full flex items-center justify-center bg-gray-50",
+                    ),
                 )
             ),
             class_name="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden",

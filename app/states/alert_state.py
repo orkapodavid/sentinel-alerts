@@ -3,6 +3,7 @@ import json
 import random
 import logging
 import math
+import asyncio
 from datetime import datetime, timedelta
 from app.models import AlertRule, AlertEvent, LogEntry
 
@@ -560,9 +561,13 @@ class AlertState(rx.State):
         self.history_page = 1
         self._refresh_history()
 
+    is_grid_ready: bool = False
+
     @rx.event(background=True)
     async def on_load(self):
         """Called when page loads."""
         async with self:
             self._initialize_db()
             self._refresh_history()
+            await asyncio.sleep(0.5)
+            self.is_grid_ready = True
