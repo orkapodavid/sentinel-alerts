@@ -68,7 +68,7 @@ def live_blotter() -> rx.Component:
                 class_name="flex justify-between items-center p-6 border-b border-gray-100",
             ),
             rx.el.div(
-                rx.el.div(
+                rx.box(
                     ag.ag_grid(
                         id="live_grid",
                         column_defs=[
@@ -114,7 +114,8 @@ def live_blotter() -> rx.Component:
                         height="100%",
                     ),
                     id="live-grid-container",
-                    style={"height": "600px", "width": "100%"},
+                    width="100%",
+                    height="600px",
                 ),
                 class_name="p-4 w-full",
             ),
