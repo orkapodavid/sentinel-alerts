@@ -29,3 +29,12 @@ class AlertEvent(rx.Base):
     acknowledged_timestamp: Optional[datetime] = None
     action_taken: Optional[str] = None
     comment: Optional[str] = None
+
+
+class LogEntry(rx.Base):
+    """Data model for system logs."""
+
+    timestamp: str
+    type: str
+    message: str
+    level: str

@@ -1,16 +1,17 @@
 import reflex as rx
 from app.states.alert_state import AlertState
+from app.models import LogEntry
 
 
-def log_row(log: dict) -> rx.Component:
+def log_row(log: LogEntry) -> rx.Component:
     return rx.el.div(
         rx.el.span(
-            log["timestamp"], class_name="text-xs font-mono text-gray-500 w-36 shrink-0"
+            log.timestamp, class_name="text-xs font-mono text-gray-500 w-36 shrink-0"
         ),
         rx.el.span(
-            log["level"].upper(),
+            log.level.upper(),
             class_name=rx.match(
-                log["level"].lower(),
+                log.level.lower(),
                 ("error", "text-xs font-bold text-red-600 w-20 shrink-0"),
                 ("warning", "text-xs font-bold text-orange-600 w-20 shrink-0"),
                 ("success", "text-xs font-bold text-green-600 w-20 shrink-0"),
@@ -18,9 +19,9 @@ def log_row(log: dict) -> rx.Component:
             ),
         ),
         rx.el.span(
-            log["type"], class_name="text-xs font-medium text-gray-900 w-32 shrink-0"
+            log.type, class_name="text-xs font-medium text-gray-900 w-32 shrink-0"
         ),
-        rx.el.span(log["message"], class_name="text-sm text-gray-700 font-mono"),
+        rx.el.span(log.message, class_name="text-sm text-gray-700 font-mono"),
         class_name="flex items-start gap-4 p-3 border-b border-gray-100 hover:bg-gray-50",
     )
 

@@ -4,7 +4,7 @@ import random
 import logging
 import math
 from datetime import datetime, timedelta
-from app.models import AlertRule, AlertEvent
+from app.models import AlertRule, AlertEvent, LogEntry
 
 DEFAULT_TEMPLATES = {
     "Custom": "{}",
@@ -106,19 +106,17 @@ class AlertState(rx.State):
             )
             return rx.toast.success("Template removed.")
 
-    system_logs: list[dict] = []
+    system_logs: list[LogEntry] = []
 
     @rx.event
     def log_system_event(self, event_type: str, message: str, level: str = "info"):
-        self.system_logs.insert(
-            0,
-            {
-                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                "type": event_type,
-                "message": message,
-                "level": level,
-            },
+        new_log = LogEntry(
+            timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            type=event_type,
+            message=message,
+            level=level,
         )
+        self.system_logs.insert(0, new_log)
         if len(self.system_logs) > 100:
             self.system_logs = self.system_logs[:100]
 
