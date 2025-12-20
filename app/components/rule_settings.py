@@ -11,14 +11,18 @@ def rule_form() -> rx.Component:
             rx.el.div(
                 rx.el.div(
                     rx.el.label(
-                        "Rule Name",
+                        "Trigger Type",
                         class_name="block text-sm font-medium text-gray-700 mb-1",
                     ),
-                    rx.el.input(
-                        on_change=AlertState.set_rule_form_name,
+                    rx.el.select(
+                        rx.el.option("Select a trigger...", value="custom"),
+                        rx.foreach(
+                            AlertState.available_triggers,
+                            lambda x: rx.el.option(x["name"], value=x["script"]),
+                        ),
+                        value=AlertState.rule_form_trigger_script,
+                        on_change=AlertState.set_rule_form_trigger_script,
                         class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
-                        placeholder="e.g. High CPU Usage",
-                        default_value=AlertState.rule_form_name,
                     ),
                     class_name="col-span-2",
                 ),
@@ -42,17 +46,14 @@ def rule_form() -> rx.Component:
             rx.el.div(
                 rx.el.div(
                     rx.el.label(
-                        "Predefined Template",
+                        "Rule Name",
                         class_name="block text-sm font-medium text-gray-700 mb-1",
                     ),
-                    rx.el.select(
-                        rx.foreach(
-                            AlertState.predefined_rule_options,
-                            lambda x: rx.el.option(x, value=x),
-                        ),
-                        value=AlertState.rule_form_predefined_type,
-                        on_change=AlertState.set_rule_form_predefined_type,
+                    rx.el.input(
+                        on_change=AlertState.set_rule_form_name,
                         class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
+                        placeholder="Name your rule",
+                        default_value=AlertState.rule_form_name,
                     ),
                     class_name="col-span-1",
                 ),

@@ -15,6 +15,8 @@ class AlertRule(rx.Base):
     action_config: str = "{}"
     comment: Optional[str] = None
     is_active: bool = True
+    trigger_script: str = "custom"
+    last_output: Optional[str] = None
 
 
 class AlertEvent(rx.Base):
@@ -29,6 +31,17 @@ class AlertEvent(rx.Base):
     acknowledged_timestamp: Optional[datetime] = None
     action_taken: Optional[str] = None
     comment: Optional[str] = None
+
+
+class AlertOutput(rx.Base):
+    """Standardized output for alert triggers."""
+
+    triggered: bool
+    importance: str
+    ticker: str
+    message: str
+    metadata: dict = {}
+    timestamp: str
 
 
 class LogEntry(rx.Base):

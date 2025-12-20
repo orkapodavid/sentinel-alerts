@@ -6,15 +6,9 @@ import math
 import asyncio
 from datetime import datetime, timedelta
 from app.models import AlertRule, AlertEvent, LogEntry
+from app.alert_runner import AlertRunner
 
-DEFAULT_TEMPLATES = {
-    "Custom": "{}",
-    "Price Surge > 10%": '{"metric": "price", "condition": "increase", "threshold_percent": 10, "ticker": "AAPL"}',
-    "Volume Spike > 200%": '{"metric": "volume", "condition": "increase", "threshold_percent": 200, "ticker": "NVDA"}',
-    "News Sentiment Alert": '{"metric": "sentiment", "condition": "negative", "threshold_score": -0.5, "source": "all"}',
-    "Unusual Options Activity": '{"metric": "options_vol", "condition": "unusual", "min_contract_size": 500}',
-    "Support/Resistance Break": '{"metric": "technical", "indicator": "breakout", "levels": [150, 200]}',
-}
+DEFAULT_TEMPLATES = {"Custom": "{}"}
 
 
 class AlertState(rx.State):
@@ -24,6 +18,7 @@ class AlertState(rx.State):
     events: list[AlertEvent] = []
     next_rule_id: int = 1
     next_event_id: int = 1
+    available_triggers: list[dict] = []
 
     @rx.var
     def total_rules(self) -> int:
@@ -51,13 +46,15 @@ class AlertState(rx.State):
     rule_form_period_unit: str = "Minutes"
     rule_form_duration_value: int = 24
     rule_form_duration_unit: str = "Hours"
-    rule_form_predefined_type: str = "Custom"
-    rule_form_parameters: str = (
-        '{"ticker": "AAPL", "metric": "price", "threshold": 150}'
-    )
+    rule_form_trigger_script: str = "custom"
+    rule_form_parameters: str = "{}"
     predefined_templates: dict[str, str] = DEFAULT_TEMPLATES.copy()
     new_template_name: str = ""
     new_template_json: str = ""
+
+    @rx.event
+    def fetch_available_triggers(self):
+        self.available_triggers = AlertRunner.discover_triggers()
 
     @rx.var
     def predefined_rule_options(self) -> list[str]:
@@ -299,52 +296,37 @@ class AlertState(rx.State):
         if not self.rules:
             rules_data = [
                 dict(
-                    name="High CPU Usage",
-                    parameters=json.dumps(
-                        {"metric": "cpu", "threshold": 90, "ticker": "SRV-001"}
-                    ),
+                    name="Production CPU Monitor",
+                    trigger_script="cpu_usage_trigger",
+                    parameters=json.dumps({"server": "PROD-CORE-01", "threshold": 90}),
                     importance="high",
                     period_seconds=300,
                     display_duration_minutes=1440,
-                    action_config=json.dumps({"email": "admin@example.com"}),
+                    action_config=json.dumps({"email": "ops@sentinel.io"}),
                     comment="Critical server monitoring",
                     is_active=True,
                 ),
                 dict(
-                    name="Memory Leak Warning",
-                    parameters=json.dumps(
-                        {"metric": "memory", "threshold": 85, "ticker": "SRV-DB-02"}
-                    ),
+                    name="Apple Stock Surge",
+                    trigger_script="price_surge_trigger",
+                    parameters=json.dumps({"ticker": "AAPL", "threshold": 180.0}),
                     importance="medium",
-                    period_seconds=600,
-                    display_duration_minutes=720,
-                    action_config=json.dumps({"slack": "#dev-ops"}),
-                    comment="Monitor for potential leaks",
-                    is_active=True,
-                ),
-                dict(
-                    name="Low Disk Space",
-                    parameters=json.dumps(
-                        {"metric": "disk", "threshold": 10, "ticker": "SRV-STORAGE"}
-                    ),
-                    importance="critical",
-                    period_seconds=3600,
-                    display_duration_minutes=2880,
-                    action_config=json.dumps({"pagerduty": "urgent"}),
-                    comment="Storage capacity warning",
-                    is_active=True,
-                ),
-                dict(
-                    name="API Latency Spike",
-                    parameters=json.dumps(
-                        {"metric": "latency", "threshold": 500, "ticker": "API-GATEWAY"}
-                    ),
-                    importance="low",
                     period_seconds=60,
                     display_duration_minutes=60,
+                    action_config=json.dumps({"slack": "#trading"}),
+                    comment="Day trading alert",
+                    is_active=True,
+                ),
+                dict(
+                    name="NVDA Volume Spike",
+                    trigger_script="volume_spike_trigger",
+                    parameters=json.dumps({"ticker": "NVDA", "avg_volume": 5000000}),
+                    importance="low",
+                    period_seconds=300,
+                    display_duration_minutes=120,
                     action_config=json.dumps({"log": "true"}),
-                    comment="Performance degradation check",
-                    is_active=False,
+                    comment="Volume tracking",
+                    is_active=True,
                 ),
             ]
             for r_data in rules_data:
@@ -355,46 +337,55 @@ class AlertState(rx.State):
 
     @rx.event
     def generate_mock_alerts(self):
-        """Generate random mock alert events."""
+        """Run trigger scripts for active rules."""
         new_events_count = 0
         active_rules = [r for r in self.rules if r.is_active]
         for rule in active_rules:
-            if random.random() < 0.4:
-                try:
-                    params = json.loads(rule.parameters)
-                    ticker = params.get("ticker", "UNKNOWN")
-                    metric = params.get("metric", "unknown_metric")
-                    threshold = params.get("threshold", 0)
-                    current_value = threshold + random.randint(1, 20)
-                    message = f"Alert triggered for {ticker}: {metric} is {current_value} (Threshold: {threshold})"
-                    event = AlertEvent(
-                        id=self.next_event_id,
-                        rule_id=rule.id,
-                        message=message,
-                        importance=rule.importance,
-                        timestamp=datetime.utcnow(),
-                        is_acknowledged=False,
-                    )
-                    self.next_event_id += 1
-                    self.events.append(event)
-                    new_events_count += 1
-                except Exception as e:
-                    logging.exception(f"Error generating mock event: {e}")
-                    continue
+            try:
+                params = json.loads(rule.parameters)
+                if rule.trigger_script and rule.trigger_script != "custom":
+                    output = AlertRunner.run_trigger(rule.trigger_script, params)
+                    if output:
+                        rule.last_output = output.json()
+                        if output.triggered:
+                            event = AlertEvent(
+                                id=self.next_event_id,
+                                rule_id=rule.id,
+                                message=output.message,
+                                importance=output.importance.lower(),
+                                timestamp=datetime.utcnow(),
+                                is_acknowledged=False,
+                            )
+                            self.next_event_id += 1
+                            self.events.append(event)
+                            new_events_count += 1
+            except Exception as e:
+                logging.exception(f"Error running trigger for rule {rule.name}: {e}")
+                continue
         if new_events_count > 0:
             self.events = list(self.events)
             self._refresh_history()
             self.log_system_event(
-                "Mock Data", f"Generated {new_events_count} mock alerts", "info"
+                "Trigger Execution",
+                f"Generated {new_events_count} alerts from active rules",
+                "info",
             )
-            return rx.toast.info(f"Generated {new_events_count} new mock alerts.")
+            return rx.toast.info(
+                f"Generated {new_events_count} new alerts from triggers."
+            )
         else:
-            return rx.toast.info("No alerts generated this time.")
+            return rx.toast.info("Rules executed but no alerts triggered.")
 
     @rx.event
-    def set_rule_form_predefined_type(self, value: str):
-        self.rule_form_predefined_type = value
-        self.rule_form_parameters = self.predefined_templates.get(value, "{}")
+    def set_rule_form_trigger_script(self, value: str):
+        self.rule_form_trigger_script = value
+        for trigger in self.available_triggers:
+            if trigger["script"] == value:
+                self.rule_form_name = trigger["name"]
+                self.rule_form_parameters = json.dumps(
+                    trigger["default_params"], indent=2
+                )
+                break
 
     @rx.event
     def add_rule(self):
@@ -428,6 +419,7 @@ class AlertState(rx.State):
             action_config=action_config,
             comment="Manual Entry",
             is_active=True,
+            trigger_script=self.rule_form_trigger_script,
         )
         self.next_rule_id += 1
         self.rules.append(new_rule)
@@ -437,6 +429,8 @@ class AlertState(rx.State):
         )
         self.rule_form_name = ""
         self.rule_form_action = ""
+        self.rule_form_trigger_script = "custom"
+        self.rule_form_parameters = "{}"
         return rx.toast.success("Rule created.")
 
     @rx.event
@@ -567,6 +561,7 @@ class AlertState(rx.State):
     async def on_load(self):
         """Called when page loads."""
         async with self:
+            self.fetch_available_triggers()
             self._initialize_db()
             self._refresh_history()
             await asyncio.sleep(0.5)
