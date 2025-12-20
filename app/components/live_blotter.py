@@ -111,6 +111,7 @@ def live_blotter() -> rx.Component:
                         "filter": True,
                     },
                     style={"height": "100%", "width": "100%"},
+                    suppressBrowserResizeObserver=True,
                 ),
                 class_name="w-full h-[500px]",
             ),
