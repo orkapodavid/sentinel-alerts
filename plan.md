@@ -36,10 +36,10 @@
 - [x] Added proper pagination controls (Previous/Next with disabled states)
 - [x] Optimized live_grid_data with proper filtering before sorting
 
-## Phase 6: Script-Based Alert Trigger System
-- [ ] Define generic AlertOutput JSON schema for standardized alert messages
-- [ ] Create alert_triggers/ directory with base class and example trigger scripts
-- [ ] Implement script discovery mechanism to find all available triggers
-- [ ] Update Rule Form with dropdown populated from discovered trigger scripts
-- [ ] Create AlertRunner utility for external Python runtimes to invoke triggers
-- [ ] Update AlertState to execute selected trigger scripts and store JSON output
+## Phase 6: Script-Based Alert Trigger System ✅
+- [x] Define generic AlertOutput JSON schema for standardized alert messages
+- [x] Create alert_triggers/ directory with base class and example trigger scripts
+- [x] Implement script discovery mechanism to find all available triggers
+- [x] Update Rule Form with dropdown populated from discovered trigger scripts
+- [x] Create AlertRunner utility for external Python runtimes to invoke triggers
+- [x] Update AlertState to execute selected trigger scripts and store JSON output
