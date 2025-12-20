@@ -54,15 +54,39 @@ class AlertState(rx.State):
             (1 for e in self.events if not e.is_acknowledged)
         )
 
+    live_page: int = 1
+    live_page_size: int = 10
+    live_sort_col: str = "importance"
+    live_sort_desc: bool = True
+
+    @rx.var
+    def live_total_pages(self) -> int:
+        """Total pages for live blotter."""
+        count = 0
+        rules_map = {r.id: r for r in self.rules}
+        for event in self.events:
+            imp = event.importance.lower()
+            ts = event.timestamp if event.timestamp else datetime.min
+            if imp in ["critical", "high"]:
+                if not event.is_acknowledged:
+                    count += 1
+            else:
+                rule = rules_map.get(event.rule_id)
+                duration_mins = rule.display_duration_minutes if rule else 1440
+                cutoff = self.current_time - timedelta(minutes=duration_mins)
+                if ts >= cutoff:
+                    count += 1
+        return math.ceil(count / self.live_page_size) if self.live_page_size > 0 else 1
+
     @rx.var
     def live_grid_data(self) -> list[dict]:
         """
-        Return formatted data for the AG Grid Live Blotter.
+        Return formatted data for the Live Blotter Table with Pagination.
         Logic:
            - Serious/High importance: Show until is_acknowledged is True
            - Medium/Low importance: Show only if timestamp is within display_duration_minutes
         """
-        data = []
+        filtered_data = []
         rules_map = {r.id: r for r in self.rules}
         for event in self.events:
             keep = False
@@ -79,33 +103,50 @@ class AlertState(rx.State):
                     keep = True
             if keep:
                 status_text = "Acknowledged" if event.is_acknowledged else "Pending"
-                action_text = "" if event.is_acknowledged else "ACKNOWLEDGE"
-                data.append(
+                filtered_data.append(
                     {
                         "id": event.id,
                         "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                         "importance": event.importance.upper(),
                         "message": event.message,
                         "status": status_text,
-                        "action": action_text,
                         "is_acknowledged": event.is_acknowledged,
                     }
                 )
-        importance_map = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
-        data.sort(
-            key=lambda x: (importance_map.get(x["importance"], 0), x["timestamp"]),
-            reverse=True,
-        )
-        return data
+        reverse = self.live_sort_desc
+        if self.live_sort_col == "importance":
+            importance_map = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
+            filtered_data.sort(
+                key=lambda x: (importance_map.get(x["importance"], 0), x["timestamp"]),
+                reverse=reverse,
+            )
+        elif self.live_sort_col == "timestamp":
+            filtered_data.sort(key=lambda x: x["timestamp"], reverse=reverse)
+        elif self.live_sort_col == "message":
+            filtered_data.sort(key=lambda x: x["message"], reverse=reverse)
+        elif self.live_sort_col == "status":
+            filtered_data.sort(key=lambda x: x["status"], reverse=reverse)
+        start = (self.live_page - 1) * self.live_page_size
+        end = start + self.live_page_size
+        return filtered_data[start:end]
 
     @rx.event
-    def handle_live_grid_click(self, cell_event: dict):
-        """Handle clicks on the live grid, specifically the Action column."""
-        col_id = cell_event.get("colId")
-        row_data = cell_event.get("data")
-        if col_id == "action" and row_data:
-            if not row_data.get("is_acknowledged"):
-                self.open_acknowledge_modal(row_data.get("id"))
+    def next_live_page(self):
+        if self.live_page < self.live_total_pages:
+            self.live_page += 1
+
+    @rx.event
+    def prev_live_page(self):
+        if self.live_page > 1:
+            self.live_page -= 1
+
+    @rx.event
+    def set_live_sort(self, col: str):
+        if self.live_sort_col == col:
+            self.live_sort_desc = not self.live_sort_desc
+        else:
+            self.live_sort_col = col
+            self.live_sort_desc = True
 
     @rx.event
     def tick(self, _=None):
@@ -319,41 +360,33 @@ class AlertState(rx.State):
     history_page: int = 1
     history_page_size: int = 10
 
-    @rx.var
-    def _filtered_events_raw(self) -> list[AlertEvent]:
-        """
-        Efficient In-Memory Filtering:
-        Instead of converting all events to dicts immediately, we first filter
-        the list of AlertEvent objects. This simulates 'server-side' logic by
-        avoiding heavy serialization for off-page items.
-        """
-        filtered = []
-        search_q = self.history_search_query.lower().strip()
-        filter_imp = self.history_importance_filter.lower()
-        rules_map = {r.id: r for r in self.rules}
-        for e in reversed(self.events):
-            if filter_imp != "all" and e.importance.lower() != filter_imp:
-                continue
-            if search_q:
-                ticker = "-"
+    def _get_filtered_events(self) -> list[AlertEvent]:
+        """Filter events based on current filters (In-Memory)."""
+        events = self.events
+        if self.history_importance_filter != "All":
+            events = [
+                e
+                for e in events
+                if e.importance.lower() == self.history_importance_filter.lower()
+            ]
+        if self.history_search_query:
+            query = self.history_search_query.lower()
+            rules_map = {r.id: r for r in self.rules}
+            filtered_events = []
+            for e in events:
                 rule = rules_map.get(e.rule_id)
-                if rule:
-                    try:
-                        params = json.loads(rule.parameters)
-                        ticker = params.get("ticker", "-")
-                    except Exception as e:
-                        logging.exception(
-                            f"Error parsing parameters for filtering: {e}"
-                        )
-                if search_q not in e.message.lower() and search_q not in ticker.lower():
-                    continue
-            filtered.append(e)
-        return filtered
+                rule_name = rule.name.lower() if rule else ""
+                rule_params = rule.parameters.lower() if rule else ""
+                message = e.message.lower()
+                if query in message or query in rule_name or query in rule_params:
+                    filtered_events.append(e)
+            events = filtered_events
+        return events
 
     @rx.var
     def filtered_history_count(self) -> int:
-        """Total count of filtered items for pagination."""
-        return len(self._filtered_events_raw)
+        """Total count of filtered items."""
+        return len(self._get_filtered_events())
 
     @rx.var
     def history_total_pages(self) -> int:
@@ -379,40 +412,42 @@ class AlertState(rx.State):
 
     @rx.var
     def paginated_history(self) -> list[dict]:
-        """
-        Pagination Logic:
-        Only convert the displayed slice of events to dictionaries.
-        This significantly reduces overhead compared to converting the entire dataset.
-        """
+        """Pagination Logic (In-Memory)."""
+        filtered_events = self._get_filtered_events()
+        filtered_events.sort(key=lambda x: x.timestamp or datetime.min, reverse=True)
         start = (self.history_page - 1) * self.history_page_size
         end = start + self.history_page_size
-        slice_events = self._filtered_events_raw[start:end]
-        results = []
+        page_items = filtered_events[start:end]
+        final_results = []
         rules_map = {r.id: r for r in self.rules}
-        for e in slice_events:
+        for event in page_items:
+            rule = rules_map.get(event.rule_id)
             ticker = "-"
-            rule = rules_map.get(e.rule_id)
             if rule:
                 try:
                     params = json.loads(rule.parameters)
                     ticker = params.get("ticker", "-")
                 except Exception as e:
-                    logging.exception(f"Error parsing parameters for pagination: {e}")
-            results.append(
+                    logging.exception(f"Error parsing rule parameters: {e}")
+            final_results.append(
                 {
-                    "id": e.id,
-                    "timestamp": e.timestamp.isoformat() if e.timestamp else "",
-                    "message": e.message,
-                    "importance": e.importance,
-                    "is_acknowledged": e.is_acknowledged,
-                    "acknowledged_timestamp": e.acknowledged_timestamp.isoformat()
-                    if e.acknowledged_timestamp
+                    "id": event.id,
+                    "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                    if event.timestamp
+                    else "",
+                    "message": event.message,
+                    "importance": event.importance,
+                    "is_acknowledged": event.is_acknowledged,
+                    "acknowledged_timestamp": event.acknowledged_timestamp.strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                    if event.acknowledged_timestamp
                     else None,
-                    "ack_comment": e.comment or "",
+                    "ack_comment": event.comment or "",
                     "ticker": ticker,
                 }
             )
-        return results
+        return final_results
 
     @rx.event
     def next_history_page(self):

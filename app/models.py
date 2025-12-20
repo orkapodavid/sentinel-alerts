@@ -6,7 +6,7 @@ from typing import Optional
 class AlertRule(rx.Base):
     """Data model for defining alert rules."""
 
-    id: Optional[int] = None
+    id: int
     name: str
     parameters: str = "{}"
     importance: str = "medium"
@@ -20,7 +20,7 @@ class AlertRule(rx.Base):
 class AlertEvent(rx.Base):
     """Data model for recorded alert events."""
 
-    id: Optional[int] = None
+    id: int
     rule_id: int
     timestamp: Optional[datetime] = None
     message: str
