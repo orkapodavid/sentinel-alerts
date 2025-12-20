@@ -1,6 +1,8 @@
 import reflex as rx
 from app.components.sidebar import sidebar
 from app.components.live_blotter import live_blotter
+from app.components.rule_settings import rules_layout
+from app.components.historical_blotter import historical_blotter
 from app.states.alert_state import AlertState
 
 
@@ -82,48 +84,23 @@ def index() -> rx.Component:
 
 
 def rules_page() -> rx.Component:
-    """Placeholder for Rules Management."""
+    """Rules Management Page."""
     return layout(
         rx.el.div(
             rx.el.h1("Alert Rules", class_name="text-2xl font-bold text-gray-900 mb-6"),
-            rx.el.div(
-                rx.el.div(
-                    rx.icon("list-filter", class_name="w-12 h-12 text-gray-300 mb-4"),
-                    rx.el.h3(
-                        "Rules Management",
-                        class_name="text-lg font-medium text-gray-900",
-                    ),
-                    rx.el.p(
-                        "Rule creation and editing will be implemented in Phase 2.",
-                        class_name="text-gray-500 text-sm mt-1",
-                    ),
-                    class_name="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-gray-300",
-                )
-            ),
+            rules_layout(),
         )
     )
 
 
 def events_page() -> rx.Component:
-    """Placeholder for Events List."""
+    """Historical Events Page."""
     return layout(
         rx.el.div(
             rx.el.h1(
                 "Alert Events", class_name="text-2xl font-bold text-gray-900 mb-6"
             ),
-            rx.el.div(
-                rx.el.div(
-                    rx.icon("bell-ring", class_name="w-12 h-12 text-gray-300 mb-4"),
-                    rx.el.h3(
-                        "Events Log", class_name="text-lg font-medium text-gray-900"
-                    ),
-                    rx.el.p(
-                        "Real-time event monitoring will be implemented in Phase 3.",
-                        class_name="text-gray-500 text-sm mt-1",
-                    ),
-                    class_name="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-gray-300",
-                )
-            ),
+            historical_blotter(),
         )
     )
 

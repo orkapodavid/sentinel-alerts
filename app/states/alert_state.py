@@ -183,6 +183,117 @@ class AlertState(rx.State):
         else:
             return rx.toast.info("No alerts generated this time.")
 
+    rule_form_name: str = ""
+    rule_form_importance: str = "medium"
+    rule_form_action: str = ""
+    rule_form_period_value: int = 60
+    rule_form_period_unit: str = "Minutes"
+    rule_form_parameters: str = (
+        '{"ticker": "AAPL", "metric": "price", "threshold": 150}'
+    )
+
+    @rx.event
+    def add_rule(self):
+        """Create a new alert rule from form data."""
+        try:
+            json.loads(self.rule_form_parameters)
+        except json.JSONDecodeError as e:
+            logging.exception(f"Invalid JSON in parameters field: {e}")
+            return rx.toast.error("Invalid JSON in parameters field.")
+        if not self.rule_form_name:
+            return rx.toast.error("Rule Name is required.")
+        multiplier = 60
+        if self.rule_form_period_unit == "Hours":
+            multiplier = 3600
+        elif self.rule_form_period_unit == "Days":
+            multiplier = 86400
+        period_seconds = self.rule_form_period_value * multiplier
+        action_config = (
+            json.dumps({"action": self.rule_form_action})
+            if self.rule_form_action
+            else "{}"
+        )
+        new_rule = AlertRule(
+            id=len(self.rules) + 1,
+            name=self.rule_form_name,
+            parameters=self.rule_form_parameters,
+            importance=self.rule_form_importance,
+            period_seconds=period_seconds,
+            action_config=action_config,
+            comment="Manual Entry",
+            is_active=True,
+        )
+        self.rules.append(new_rule)
+        self._update_stats()
+        self.rule_form_name = ""
+        self.rule_form_action = ""
+        self.rule_form_importance = "medium"
+        return rx.toast.success("New alert rule created successfully.")
+
+    @rx.event
+    def delete_rule(self, rule_id: int):
+        """Delete a rule by ID."""
+        self.rules = [r for r in self.rules if r.id != rule_id]
+        self._update_stats()
+        return rx.toast.success("Rule deleted.")
+
+    @rx.event
+    def toggle_rule_active(self, rule_id: int):
+        """Toggle the active status of a rule."""
+        new_rules = []
+        for r in self.rules:
+            if r.id == rule_id:
+                r.is_active = not r.is_active
+            new_rules.append(r)
+        self.rules = new_rules
+        self._update_stats()
+
+    history_importance_filter: str = "All"
+    history_search_query: str = ""
+
+    @rx.var
+    def filtered_history(self) -> list[dict]:
+        """
+        Return enriched event history with filters applied.
+        Returns a list of dictionaries to allow including the derived 'ticker' field.
+        """
+        rules_map = {r.id: r for r in self.rules}
+        results = []
+        search_q = self.history_search_query.lower().strip()
+        filter_imp = self.history_importance_filter.lower()
+        for e in self.events:
+            ticker = "-"
+            rule = rules_map.get(e.rule_id)
+            if rule:
+                try:
+                    params = json.loads(rule.parameters)
+                    ticker = params.get("ticker", "-")
+                except Exception as e:
+                    logging.exception(
+                        f"Error parsing rule parameters for ticker extraction: {e}"
+                    )
+                    pass
+            if filter_imp != "all" and e.importance.lower() != filter_imp:
+                continue
+            if search_q:
+                if search_q not in e.message.lower() and search_q not in ticker.lower():
+                    continue
+            results.append(
+                {
+                    "id": e.id,
+                    "timestamp": e.timestamp.isoformat() if e.timestamp else "",
+                    "message": e.message,
+                    "importance": e.importance,
+                    "is_acknowledged": e.is_acknowledged,
+                    "acknowledged_timestamp": e.acknowledged_timestamp.isoformat()
+                    if e.acknowledged_timestamp
+                    else None,
+                    "ack_comment": e.comment or "",
+                    "ticker": ticker,
+                }
+            )
+        return sorted(results, key=lambda x: x["timestamp"], reverse=True)
+
     @rx.event(background=True)
     async def on_load(self):
         """Called when page loads."""
