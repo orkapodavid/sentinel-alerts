@@ -26,39 +26,36 @@ function(params) {
 }
 """
 column_defs = [
-    {
-        "field": "timestamp",
-        "headerName": "Time",
-        "sortable": True,
-        "filter": True,
-        "width": 120,
-        "suppressMenu": True,
-    },
-    {
-        "field": "importance",
-        "headerName": "Importance",
-        "sortable": True,
-        "filter": True,
-        "width": 140,
-        "cellRenderer": badge_renderer,
-    },
-    {
-        "field": "message",
-        "headerName": "Message",
-        "sortable": True,
-        "filter": True,
-        "flex": 1,
-        "minWidth": 300,
-    },
-    {
-        "field": "action_label",
-        "headerName": "Action",
-        "width": 160,
-        "cellRenderer": action_renderer,
-        "cellStyle": {"cursor": "pointer"},
-        "sortable": False,
-        "filter": False,
-    },
+    ag.column_def(
+        field="timestamp",
+        header_name="Time",
+        filter=ag.filters.text,
+        width=120,
+        suppress_menu=True,
+    ),
+    ag.column_def(
+        field="importance",
+        header_name="Importance",
+        filter=ag.filters.text,
+        width=140,
+        cell_renderer=badge_renderer,
+    ),
+    ag.column_def(
+        field="message",
+        header_name="Message",
+        filter=ag.filters.text,
+        flex=1,
+        min_width=300,
+    ),
+    ag.column_def(
+        field="action_label",
+        header_name="Action",
+        width=160,
+        cell_renderer=action_renderer,
+        cell_style={"cursor": "pointer"},
+        sortable=False,
+        filter=False,
+    ),
 ]
 
 
@@ -132,9 +129,12 @@ def live_blotter() -> rx.Component:
                     column_defs=column_defs,
                     row_data=AlertState.ag_grid_events,
                     on_cell_clicked=AlertState.handle_ag_grid_action,
-                    width="100%",
-                    height="100%",
-                    theme="alpine",
+                    default_col_def={
+                        "sortable": True,
+                        "resizable": True,
+                        "filter": True,
+                    },
+                    style={"height": "100%", "width": "100%"},
                 ),
                 class_name="w-full h-[500px]",
             ),
