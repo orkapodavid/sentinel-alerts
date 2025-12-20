@@ -28,7 +28,6 @@
 - [x] Implement server-side filtering for Historical Blotter with importance filter and text search
 - [x] Add pagination to Historical Blotter with Previous/Next buttons
 - [x] Optimize backend filtering with early returns and limits
-- [x] Note: AG Grid (reflex-ag-grid) has ResizeObserver compatibility issues; using optimized rx.table with sorting instead
 
 ## Phase 5: Server-Side Search Optimization ✅
 - [x] Refactored _get_filtered_events() to use efficient filtering logic
@@ -36,4 +35,11 @@
 - [x] Implemented offset-based pagination with filtered_history_count
 - [x] Added proper pagination controls (Previous/Next with disabled states)
 - [x] Optimized live_grid_data with proper filtering before sorting
-- [x] Note: True SQL WHERE/LIKE requires migrating rx.Base models to rx.Model with table=True
+
+## Phase 6: Script-Based Alert Trigger System
+- [ ] Define generic AlertOutput JSON schema for standardized alert messages
+- [ ] Create alert_triggers/ directory with base class and example trigger scripts
+- [ ] Implement script discovery mechanism to find all available triggers
+- [ ] Update Rule Form with dropdown populated from discovered trigger scripts
+- [ ] Create AlertRunner utility for external Python runtimes to invoke triggers
+- [ ] Update AlertState to execute selected trigger scripts and store JSON output
