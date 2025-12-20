@@ -42,6 +42,50 @@ def rule_form() -> rx.Component:
             rx.el.div(
                 rx.el.div(
                     rx.el.label(
+                        "Predefined Template",
+                        class_name="block text-sm font-medium text-gray-700 mb-1",
+                    ),
+                    rx.el.select(
+                        rx.foreach(
+                            AlertState.predefined_rule_options,
+                            lambda x: rx.el.option(x, value=x),
+                        ),
+                        value=AlertState.rule_form_predefined_type,
+                        on_change=AlertState.set_rule_form_predefined_type,
+                        class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
+                    ),
+                    class_name="col-span-1",
+                ),
+                rx.el.div(
+                    rx.el.label(
+                        "Display Duration",
+                        class_name="block text-sm font-medium text-gray-700 mb-1",
+                    ),
+                    rx.el.div(
+                        rx.el.input(
+                            type="number",
+                            min="1",
+                            on_change=AlertState.set_rule_form_duration_value,
+                            class_name="w-20 px-3 py-2 border border-gray-300 rounded-l-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
+                            default_value=AlertState.rule_form_duration_value,
+                        ),
+                        rx.el.select(
+                            rx.el.option("Minutes", value="Minutes"),
+                            rx.el.option("Hours", value="Hours"),
+                            rx.el.option("Days", value="Days"),
+                            value=AlertState.rule_form_duration_unit,
+                            on_change=AlertState.set_rule_form_duration_unit,
+                            class_name="flex-1 px-3 py-2 border-t border-b border-r border-gray-300 rounded-r-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
+                        ),
+                        class_name="flex",
+                    ),
+                    class_name="col-span-2",
+                ),
+                class_name="grid grid-cols-3 gap-4 mb-4",
+            ),
+            rx.el.div(
+                rx.el.div(
+                    rx.el.label(
                         "Action Target",
                         class_name="block text-sm font-medium text-gray-700 mb-1",
                     ),
