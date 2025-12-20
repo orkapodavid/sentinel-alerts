@@ -149,8 +149,8 @@ def historical_blotter() -> rx.Component:
                 ),
                 rx.el.tbody(
                     rx.cond(
-                        AlertState.filtered_history.length() > 0,
-                        rx.foreach(AlertState.filtered_history, history_row),
+                        AlertState.paginated_history.length() > 0,
+                        rx.foreach(AlertState.paginated_history, history_row),
                         rx.el.tr(
                             rx.el.td(
                                 "No events found matching your filters.",
@@ -164,6 +164,47 @@ def historical_blotter() -> rx.Component:
                 class_name="min-w-full divide-y divide-gray-200",
             ),
             class_name="overflow-x-auto",
+        ),
+        rx.cond(
+            AlertState.filtered_history_count > 0,
+            rx.el.div(
+                rx.el.div(
+                    rx.el.p(
+                        f"Showing {AlertState.history_start_index} to {AlertState.history_end_index} of {AlertState.filtered_history_count} results",
+                        class_name="text-sm text-gray-700",
+                    ),
+                    class_name="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between",
+                ),
+                rx.el.div(
+                    rx.el.nav(
+                        rx.el.button(
+                            "Previous",
+                            on_click=AlertState.prev_history_page,
+                            disabled=AlertState.history_page == 1,
+                            class_name=rx.cond(
+                                AlertState.history_page == 1,
+                                "relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed",
+                                "relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50",
+                            ),
+                        ),
+                        rx.el.button(
+                            "Next",
+                            on_click=AlertState.next_history_page,
+                            disabled=AlertState.history_page
+                            == AlertState.history_total_pages,
+                            class_name=rx.cond(
+                                AlertState.history_page
+                                == AlertState.history_total_pages,
+                                "ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed",
+                                "ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50",
+                            ),
+                        ),
+                        class_name="relative z-0 inline-flex rounded-md shadow-sm",
+                    ),
+                    class_name="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-4 sm:mt-0",
+                ),
+                class_name="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6",
+            ),
         ),
         class_name="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden",
     )

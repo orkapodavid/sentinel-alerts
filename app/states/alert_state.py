@@ -2,6 +2,7 @@ import reflex as rx
 import json
 import random
 import logging
+import math
 from datetime import datetime, timedelta
 from app.models import AlertRule, AlertEvent
 
@@ -300,11 +301,13 @@ class AlertState(rx.State):
 
     history_importance_filter: str = "All"
     history_search_query: str = ""
+    history_page: int = 1
+    history_page_size: int = 10
 
     @rx.var
-    def filtered_history(self) -> list[dict]:
+    def _filtered_sorted_all(self) -> list[dict]:
         """
-        Return enriched event history with filters applied.
+        Return enriched event history with filters applied (Internal use).
         Returns a list of dictionaries to allow including the derived 'ticker' field.
         """
         rules_map = {r.id: r for r in self.rules}
@@ -343,6 +346,82 @@ class AlertState(rx.State):
                 }
             )
         return sorted(results, key=lambda x: x["timestamp"], reverse=True)
+
+    @rx.var
+    def filtered_history_count(self) -> int:
+        """Total count of filtered items for pagination."""
+        return len(self._filtered_sorted_all)
+
+    @rx.var
+    def history_total_pages(self) -> int:
+        """Total pages based on page size."""
+        return (
+            math.ceil(self.filtered_history_count / self.history_page_size)
+            if self.history_page_size > 0
+            else 1
+        )
+
+    @rx.var
+    def history_start_index(self) -> int:
+        """Display start index (1-based)."""
+        if self.filtered_history_count == 0:
+            return 0
+        return (self.history_page - 1) * self.history_page_size + 1
+
+    @rx.var
+    def history_end_index(self) -> int:
+        """Display end index."""
+        end = self.history_page * self.history_page_size
+        return min(end, self.filtered_history_count)
+
+    @rx.var
+    def paginated_history(self) -> list[dict]:
+        """Slice of the history for the current page."""
+        start = (self.history_page - 1) * self.history_page_size
+        end = start + self.history_page_size
+        return self._filtered_sorted_all[start:end]
+
+    @rx.event
+    def next_history_page(self):
+        """Go to next page."""
+        if self.history_page < self.history_total_pages:
+            self.history_page += 1
+
+    @rx.event
+    def prev_history_page(self):
+        """Go to previous page."""
+        if self.history_page > 1:
+            self.history_page -= 1
+
+    @rx.var
+    def ag_grid_events(self) -> list[dict]:
+        """Data prepared for the Live Blotter AG Grid."""
+        data = []
+        for e in self.displayed_events:
+            data.append(
+                {
+                    "id": e.id,
+                    "timestamp": e.timestamp.strftime("%H:%M:%S")
+                    if e.timestamp
+                    else "",
+                    "importance": e.importance,
+                    "message": e.message,
+                    "is_acknowledged": e.is_acknowledged,
+                    "comment": e.comment,
+                    "action_label": "Acknowledged"
+                    if e.is_acknowledged
+                    else "Acknowledge",
+                }
+            )
+        return data
+
+    @rx.event
+    def handle_ag_grid_action(self, cell_data: dict):
+        """Handle clicks in the AG Grid."""
+        if cell_data.get("colId") == "action_label":
+            row_data = cell_data.get("data", {})
+            if not row_data.get("is_acknowledged"):
+                self.open_acknowledge_modal(row_data["id"])
 
     @rx.event(background=True)
     async def on_load(self):

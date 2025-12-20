@@ -1,95 +1,65 @@
 import reflex as rx
+import reflex_ag_grid as ag
 from app.states.alert_state import AlertState
 from app.models import AlertEvent
 
-
-def importance_badge(importance: str) -> rx.Component:
-    """Render a colored badge for event importance."""
-    return rx.match(
-        importance.lower(),
-        (
-            "critical",
-            rx.el.span(
-                "CRITICAL",
-                class_name="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800",
-            ),
-        ),
-        (
-            "high",
-            rx.el.span(
-                "HIGH",
-                class_name="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800",
-            ),
-        ),
-        (
-            "medium",
-            rx.el.span(
-                "MEDIUM",
-                class_name="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800",
-            ),
-        ),
-        (
-            "low",
-            rx.el.span(
-                "LOW",
-                class_name="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800",
-            ),
-        ),
-        rx.el.span(
-            importance,
-            class_name="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800",
-        ),
-    )
-
-
-def blotter_row(event: AlertEvent) -> rx.Component:
-    """Render a single row in the blotter table."""
-    return rx.el.tr(
-        rx.el.td(
-            rx.moment(
-                event.timestamp,
-                format="HH:mm:ss",
-                class_name="font-mono text-sm text-gray-900",
-            ),
-            rx.el.div(
-                rx.moment(event.timestamp, from_now=True),
-                class_name="text-xs text-gray-500",
-            ),
-            class_name="px-6 py-4 whitespace-nowrap",
-        ),
-        rx.el.td(
-            importance_badge(event.importance), class_name="px-6 py-4 whitespace-nowrap"
-        ),
-        rx.el.td(
-            rx.el.div(event.message, class_name="text-sm text-gray-900 font-medium"),
-            rx.cond(
-                event.comment,
-                rx.el.div(
-                    rx.icon("message-square", class_name="w-3 h-3 mr-1 inline"),
-                    event.comment,
-                    class_name="text-xs text-gray-500 mt-1 flex items-center",
-                ),
-            ),
-            class_name="px-6 py-4",
-        ),
-        rx.el.td(
-            rx.cond(
-                event.is_acknowledged,
-                rx.el.span(
-                    rx.icon("circle_check_big", class_name="w-4 h-4 mr-1"),
-                    "Ack",
-                    class_name="inline-flex items-center text-xs font-medium text-green-600",
-                ),
-                rx.el.button(
-                    "Acknowledge",
-                    on_click=AlertState.open_acknowledge_modal(event.id),
-                    class_name="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors",
-                ),
-            ),
-            class_name="px-6 py-4 whitespace-nowrap text-right",
-        ),
-        class_name="bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors",
-    )
+badge_renderer = """
+function(params) {
+    if (!params.value) return '';
+    const map = {
+        'critical': 'bg-red-100 text-red-800',
+        'high': 'bg-orange-100 text-orange-800',
+        'medium': 'bg-yellow-100 text-yellow-800',
+        'low': 'bg-blue-100 text-blue-800'
+    };
+    const colorClass = map[params.value.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    return `<span class="px-2 py-0.5 rounded text-xs font-medium ${colorClass}">${params.value.toUpperCase()}</span>`;
+}
+"""
+action_renderer = """
+function(params) {
+    if (params.data.is_acknowledged) {
+        return '<span class="text-green-600 font-medium text-xs flex items-center justify-end h-full"><svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Ack</span>';
+    } else {
+        return '<div class="flex justify-end items-center h-full"><button class="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded hover:bg-indigo-200 transition-colors">Acknowledge</button></div>';
+    }
+}
+"""
+column_defs = [
+    {
+        "field": "timestamp",
+        "headerName": "Time",
+        "sortable": True,
+        "filter": True,
+        "width": 120,
+        "suppressMenu": True,
+    },
+    {
+        "field": "importance",
+        "headerName": "Importance",
+        "sortable": True,
+        "filter": True,
+        "width": 140,
+        "cellRenderer": badge_renderer,
+    },
+    {
+        "field": "message",
+        "headerName": "Message",
+        "sortable": True,
+        "filter": True,
+        "flex": 1,
+        "minWidth": 300,
+    },
+    {
+        "field": "action_label",
+        "headerName": "Action",
+        "width": 160,
+        "cellRenderer": action_renderer,
+        "cellStyle": {"cursor": "pointer"},
+        "sortable": False,
+        "filter": False,
+    },
+]
 
 
 def acknowledge_modal() -> rx.Component:
@@ -157,45 +127,15 @@ def live_blotter() -> rx.Component:
                 class_name="flex justify-between items-center p-6 border-b border-gray-100",
             ),
             rx.el.div(
-                rx.el.table(
-                    rx.el.thead(
-                        rx.el.tr(
-                            rx.el.th(
-                                "Time",
-                                class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                            ),
-                            rx.el.th(
-                                "Importance",
-                                class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                            ),
-                            rx.el.th(
-                                "Message",
-                                class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                            ),
-                            rx.el.th(
-                                "Action",
-                                class_name="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider",
-                            ),
-                        ),
-                        class_name="bg-gray-50",
-                    ),
-                    rx.el.tbody(
-                        rx.cond(
-                            AlertState.displayed_events.length() > 0,
-                            rx.foreach(AlertState.displayed_events, blotter_row),
-                            rx.el.tr(
-                                rx.el.td(
-                                    "No active alerts requiring attention.",
-                                    col_span=4,
-                                    class_name="px-6 py-8 text-center text-sm text-gray-500 italic",
-                                )
-                            ),
-                        ),
-                        class_name="bg-white divide-y divide-gray-100",
-                    ),
-                    class_name="min-w-full divide-y divide-gray-200",
+                ag.ag_grid(
+                    id="live_grid",
+                    column_defs=column_defs,
+                    row_data=AlertState.ag_grid_events,
+                    on_cell_clicked=AlertState.handle_ag_grid_action,
+                    class_name="h-[500px] w-full",
+                    theme="alpine",
                 ),
-                class_name="overflow-x-auto",
+                class_name="w-full",
             ),
             class_name="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden",
         ),
