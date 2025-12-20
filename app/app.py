@@ -3,15 +3,42 @@ from app.components.sidebar import sidebar
 from app.components.live_blotter import live_blotter
 from app.components.rule_settings import rules_layout
 from app.components.historical_blotter import historical_blotter
+from app.components.settings import settings_page
+from app.components.logs import logs_page
 from app.states.alert_state import AlertState
+from app.states.ui_state import UIState
 
 
 def layout(content: rx.Component) -> rx.Component:
-    """Main layout with sidebar and content area."""
+    """Main layout with responsive sidebar and content area."""
     return rx.el.div(
+        rx.cond(
+            UIState.sidebar_open,
+            rx.el.div(
+                class_name="fixed inset-0 bg-gray-600 bg-opacity-75 z-40 md:hidden transition-opacity",
+                on_click=UIState.close_sidebar,
+            ),
+        ),
         sidebar(),
-        rx.el.main(content, class_name="ml-64 min-h-screen bg-gray-50 p-8 w-full"),
-        class_name="flex min-h-screen font-['Inter']",
+        rx.el.div(
+            rx.el.header(
+                rx.el.div(
+                    rx.el.button(
+                        rx.icon("menu", class_name="h-6 w-6 text-gray-600"),
+                        on_click=UIState.toggle_sidebar,
+                        class_name="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500",
+                    ),
+                    rx.el.span(
+                        "Sentinel", class_name="ml-3 text-lg font-bold text-gray-900"
+                    ),
+                    class_name="flex items-center",
+                ),
+                class_name="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200 sticky top-0 z-30",
+            ),
+            rx.el.main(content, class_name="flex-1 bg-gray-50 p-4 md:p-8 min-h-screen"),
+            class_name="flex flex-col flex-1 md:ml-64 min-h-screen transition-all duration-300",
+        ),
+        class_name="flex min-h-screen font-['Inter'] bg-gray-50",
     )
 
 
@@ -117,3 +144,7 @@ app = rx.App(
 app.add_page(index, route="/", on_load=AlertState.on_load)
 app.add_page(rules_page, route="/rules", on_load=AlertState.on_load)
 app.add_page(events_page, route="/events", on_load=AlertState.on_load)
+app.add_page(
+    lambda: layout(settings_page()), route="/settings", on_load=AlertState.on_load
+)
+app.add_page(lambda: layout(logs_page()), route="/logs", on_load=AlertState.on_load)

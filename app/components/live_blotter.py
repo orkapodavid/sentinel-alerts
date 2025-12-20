@@ -123,7 +123,7 @@ def live_blotter() -> rx.Component:
                     width="100%",
                     height="600px",
                 ),
-                class_name="w-full h-[600px]",
+                class_name="w-full h-[600px] overflow-hidden",
             ),
             class_name="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden",
         ),

@@ -1,4 +1,5 @@
 import reflex as rx
+from app.states.ui_state import UIState
 
 
 def sidebar_item(text: str, icon: str, url: str) -> rx.Component:
@@ -11,11 +12,12 @@ def sidebar_item(text: str, icon: str, url: str) -> rx.Component:
         ),
         href=url,
         class_name="block w-full",
+        on_click=UIState.close_sidebar,
     )
 
 
 def sidebar() -> rx.Component:
-    """Main sidebar component."""
+    """Main sidebar component with responsive behavior."""
     return rx.el.aside(
         rx.el.div(
             rx.el.div(
@@ -23,7 +25,12 @@ def sidebar() -> rx.Component:
                 rx.el.span("Sentinel", class_name="text-xl font-bold text-gray-900"),
                 class_name="flex items-center gap-3 px-2",
             ),
-            class_name="h-16 flex items-center border-b border-gray-100 mb-6",
+            rx.el.button(
+                rx.icon("x", class_name="w-6 h-6 text-gray-500"),
+                on_click=UIState.close_sidebar,
+                class_name="md:hidden p-1 rounded-md hover:bg-gray-100",
+            ),
+            class_name="h-16 flex items-center justify-between border-b border-gray-100 mb-6",
         ),
         rx.el.nav(
             rx.el.div(
@@ -88,5 +95,9 @@ def sidebar() -> rx.Component:
             ),
             class_name="border-t border-gray-100 pt-4 mt-auto",
         ),
-        class_name="w-64 h-screen bg-white border-r border-gray-200 flex flex-col p-4 shrink-0 fixed top-0 left-0",
+        class_name=rx.cond(
+            UIState.sidebar_open,
+            "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col p-4 transition-transform duration-300 translate-x-0 md:translate-x-0 shadow-xl md:shadow-none",
+            "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col p-4 transition-transform duration-300 -translate-x-full md:translate-x-0 shadow-xl md:shadow-none",
+        ),
     )

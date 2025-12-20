@@ -6,7 +6,7 @@ import math
 from datetime import datetime, timedelta
 from app.models import AlertRule, AlertEvent
 
-PREDEFINED_TEMPLATES = {
+DEFAULT_TEMPLATES = {
     "Custom": "{}",
     "Price Surge > 10%": '{"metric": "price", "condition": "increase", "threshold_percent": 10, "ticker": "AAPL"}',
     "Volume Spike > 200%": '{"metric": "volume", "condition": "increase", "threshold_percent": 200, "ticker": "NVDA"}',
@@ -54,7 +54,73 @@ class AlertState(rx.State):
     rule_form_parameters: str = (
         '{"ticker": "AAPL", "metric": "price", "threshold": 150}'
     )
-    predefined_rule_options: list[str] = list(PREDEFINED_TEMPLATES.keys())
+    predefined_templates: dict[str, str] = DEFAULT_TEMPLATES.copy()
+    new_template_name: str = ""
+    new_template_json: str = ""
+
+    @rx.var
+    def predefined_rule_options(self) -> list[str]:
+        return list(self.predefined_templates.keys())
+
+    @rx.var
+    def template_list(self) -> list[dict]:
+        return [
+            {"name": k, "json": v}
+            for k, v in self.predefined_templates.items()
+            if k != "Custom"
+        ]
+
+    @rx.event
+    def set_new_template_name(self, value: str):
+        self.new_template_name = value
+
+    @rx.event
+    def set_new_template_json(self, value: str):
+        self.new_template_json = value
+
+    @rx.event
+    def add_template(self):
+        if not self.new_template_name or not self.new_template_json:
+            return rx.toast.error("Name and JSON are required.")
+        try:
+            json.loads(self.new_template_json)
+        except json.JSONDecodeError as e:
+            logging.exception(f"Invalid JSON format in template: {e}")
+            return rx.toast.error("Invalid JSON format.")
+        self.predefined_templates[self.new_template_name] = self.new_template_json
+        self.predefined_templates = self.predefined_templates.copy()
+        self.log_system_event(
+            "Template Added", f"Added template: {self.new_template_name}", "info"
+        )
+        self.new_template_name = ""
+        self.new_template_json = ""
+        return rx.toast.success("Template added.")
+
+    @rx.event
+    def remove_template(self, name: str):
+        if name in self.predefined_templates:
+            del self.predefined_templates[name]
+            self.predefined_templates = self.predefined_templates.copy()
+            self.log_system_event(
+                "Template Removed", f"Removed template: {name}", "warning"
+            )
+            return rx.toast.success("Template removed.")
+
+    system_logs: list[dict] = []
+
+    @rx.event
+    def log_system_event(self, event_type: str, message: str, level: str = "info"):
+        self.system_logs.insert(
+            0,
+            {
+                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                "type": event_type,
+                "message": message,
+                "level": level,
+            },
+        )
+        if len(self.system_logs) > 100:
+            self.system_logs = self.system_logs[:100]
 
     def _get_rule_by_id(self, rule_id: int) -> AlertRule | None:
         for r in self.rules:
@@ -153,6 +219,9 @@ class AlertState(rx.State):
                 event.acknowledged_timestamp = datetime.utcnow()
                 event.comment = self.acknowledgement_comment
                 self.events = list(self.events)
+                self.log_system_event(
+                    "Event Acknowledged", f"Acknowledged event {event.id}", "success"
+                )
             self.selected_event_id = -1
             self._refresh_history()
 
@@ -246,6 +315,9 @@ class AlertState(rx.State):
         if new_events_count > 0:
             self.events = list(self.events)
             self._refresh_history()
+            self.log_system_event(
+                "Mock Data", f"Generated {new_events_count} mock alerts", "info"
+            )
             return rx.toast.info(f"Generated {new_events_count} new mock alerts.")
         else:
             return rx.toast.info("No alerts generated this time.")
@@ -253,7 +325,7 @@ class AlertState(rx.State):
     @rx.event
     def set_rule_form_predefined_type(self, value: str):
         self.rule_form_predefined_type = value
-        self.rule_form_parameters = PREDEFINED_TEMPLATES.get(value, "{}")
+        self.rule_form_parameters = self.predefined_templates.get(value, "{}")
 
     @rx.event
     def add_rule(self):
@@ -291,6 +363,9 @@ class AlertState(rx.State):
         self.next_rule_id += 1
         self.rules.append(new_rule)
         self.rules = list(self.rules)
+        self.log_system_event(
+            "Rule Created", f"Created rule: {new_rule.name}", "success"
+        )
         self.rule_form_name = ""
         self.rule_form_action = ""
         return rx.toast.success("Rule created.")
@@ -301,6 +376,9 @@ class AlertState(rx.State):
         if rule:
             self.rules.remove(rule)
             self.rules = list(self.rules)
+            self.log_system_event(
+                "Rule Deleted", f"Deleted rule: {rule.name}", "warning"
+            )
         return rx.toast.success("Rule deleted.")
 
     @rx.event
@@ -308,6 +386,8 @@ class AlertState(rx.State):
         rule = self._get_rule_by_id(rule_id)
         if rule:
             rule.is_active = not rule.is_active
+            status = "activated" if rule.is_active else "deactivated"
+            self.log_system_event("Rule Updated", f"Rule {rule.name} {status}", "info")
             self.rules = list(self.rules)
 
     history_importance_filter: str = "All"
