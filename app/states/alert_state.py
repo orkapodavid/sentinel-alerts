@@ -132,10 +132,37 @@ class AlertState(rx.State):
                 return e
         return None
 
+    live_sort_column: str = "timestamp"
+    live_sort_reverse: bool = True
+    live_page: int = 1
+    live_page_size: int = 10
+
+    @rx.event
+    def sort_live_by(self, col: str):
+        if self.live_sort_column == col:
+            self.live_sort_reverse = not self.live_sort_reverse
+        else:
+            self.live_sort_column = col
+            if col == "timestamp":
+                self.live_sort_reverse = True
+            else:
+                self.live_sort_reverse = False
+        self.live_page = 1
+
+    @rx.event
+    def next_live_page(self):
+        if self.live_page < self.live_total_pages:
+            self.live_page += 1
+
+    @rx.event
+    def prev_live_page(self):
+        if self.live_page > 1:
+            self.live_page -= 1
+
     @rx.var
-    def live_grid_data(self) -> list[dict]:
+    def all_live_events(self) -> list[dict]:
         """
-        Return formatted data for the Live Blotter.
+        Return all relevant events for the Live Blotter.
         Filters relevant events in memory.
         """
         data = []
@@ -182,17 +209,47 @@ class AlertState(rx.State):
                 )
         return data
 
-    @rx.event
-    def handle_grid_action(self, event_data: dict):
-        """Handle click on AG Grid cell."""
-        col_id = event_data.get("colId")
-        row_data = event_data.get("data")
-        if (
-            col_id == "is_acknowledged"
-            and row_data
-            and (not row_data.get("is_acknowledged"))
-        ):
-            self.open_acknowledge_modal(row_data["id"])
+    @rx.var
+    def live_events_count(self) -> int:
+        return len(self.all_live_events)
+
+    @rx.var
+    def live_total_pages(self) -> int:
+        return (
+            math.ceil(self.live_events_count / self.live_page_size)
+            if self.live_page_size > 0
+            else 1
+        )
+
+    @rx.var
+    def paginated_live_events(self) -> list[dict]:
+        items = self.all_live_events[:]
+        col = self.live_sort_column
+        reverse = self.live_sort_reverse
+
+        @rx.event
+        def sort_key(item):
+            val = item.get(col, "")
+            if col == "importance":
+                order = {"CRITICAL": 3, "HIGH": 2, "MEDIUM": 1, "LOW": 0}
+                return order.get(str(val).upper(), -1)
+            return val
+
+        items.sort(key=sort_key, reverse=reverse)
+        start = (self.live_page - 1) * self.live_page_size
+        end = start + self.live_page_size
+        return items[start:end]
+
+    @rx.var
+    def live_start_index(self) -> int:
+        if self.live_events_count == 0:
+            return 0
+        return (self.live_page - 1) * self.live_page_size + 1
+
+    @rx.var
+    def live_end_index(self) -> int:
+        end = self.live_page * self.live_page_size
+        return min(end, self.live_events_count)
 
     @rx.event
     def tick(self, _=None):

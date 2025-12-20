@@ -1,5 +1,4 @@
 import reflex as rx
-import reflex_ag_grid as ag
 from app.states.alert_state import AlertState
 
 
@@ -44,8 +43,95 @@ def acknowledge_modal() -> rx.Component:
     )
 
 
+def sortable_header(label: str, col_id: str) -> rx.Component:
+    """A table header that triggers sorting."""
+    return rx.el.th(
+        rx.el.div(
+            label,
+            rx.cond(
+                AlertState.live_sort_column == col_id,
+                rx.cond(
+                    AlertState.live_sort_reverse,
+                    rx.icon("arrow-down", class_name="w-3 h-3 ml-1"),
+                    rx.icon("arrow-up", class_name="w-3 h-3 ml-1"),
+                ),
+                rx.icon("arrow-up-down", class_name="w-3 h-3 ml-1 text-gray-300"),
+            ),
+            class_name="flex items-center cursor-pointer hover:text-gray-700",
+        ),
+        on_click=AlertState.sort_live_by(col_id),
+        class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider select-none",
+    )
+
+
+def live_row(event: dict) -> rx.Component:
+    """Row for the live blotter table."""
+    return rx.el.tr(
+        rx.el.td(
+            rx.el.div(event["timestamp"], class_name="font-mono text-sm text-gray-900"),
+            class_name="px-6 py-4 whitespace-nowrap",
+        ),
+        rx.el.td(
+            rx.match(
+                event["importance"].to(str).lower(),
+                (
+                    "critical",
+                    rx.el.span("CRITICAL", class_name="text-xs font-bold text-red-600"),
+                ),
+                (
+                    "high",
+                    rx.el.span("HIGH", class_name="text-xs font-bold text-orange-600"),
+                ),
+                (
+                    "medium",
+                    rx.el.span(
+                        "MEDIUM", class_name="text-xs font-medium text-yellow-600"
+                    ),
+                ),
+                (
+                    "low",
+                    rx.el.span("LOW", class_name="text-xs font-medium text-blue-600"),
+                ),
+                rx.el.span(event["importance"], class_name="text-xs text-gray-500"),
+            ),
+            class_name="px-6 py-4 whitespace-nowrap",
+        ),
+        rx.el.td(
+            rx.el.div(event["message"], class_name="text-sm text-gray-900"),
+            class_name="px-6 py-4",
+        ),
+        rx.el.td(
+            rx.cond(
+                event["is_acknowledged"],
+                rx.el.span(
+                    "Acknowledged",
+                    class_name="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800",
+                ),
+                rx.el.span(
+                    "Pending",
+                    class_name="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800",
+                ),
+            ),
+            class_name="px-6 py-4 whitespace-nowrap",
+        ),
+        rx.el.td(
+            rx.cond(
+                event["is_acknowledged"],
+                rx.el.span("✅", class_name="text-green-500 text-lg"),
+                rx.el.button(
+                    "ACKNOWLEDGE",
+                    on_click=AlertState.open_acknowledge_modal(event["id"]),
+                    class_name="text-xs font-bold text-indigo-600 hover:text-indigo-900 hover:underline",
+                ),
+            ),
+            class_name="px-6 py-4 whitespace-nowrap text-right",
+        ),
+        class_name="bg-white border-b border-gray-100 hover:bg-gray-50",
+    )
+
+
 def live_blotter() -> rx.Component:
-    """The main Live Blotter component using rx.ag_grid."""
+    """The main Live Blotter component using rx.el.table."""
     return rx.el.div(
         rx.el.div(
             rx.moment(interval=30000, on_change=AlertState.tick), class_name="hidden"
@@ -68,62 +154,77 @@ def live_blotter() -> rx.Component:
                 class_name="flex justify-between items-center p-6 border-b border-gray-100",
             ),
             rx.el.div(
-                ag.ag_grid(
-                    id="live_alerts_grid",
-                    column_defs=[
-                        {
-                            "field": "timestamp",
-                            "headerName": "Time",
-                            "sortable": True,
-                            "filter": True,
-                            "width": 180,
-                        },
-                        {
-                            "field": "importance",
-                            "headerName": "Level",
-                            "sortable": True,
-                            "filter": True,
-                            "width": 120,
-                            "cellStyle": {"fontWeight": "bold"},
-                        },
-                        {
-                            "field": "message",
-                            "headerName": "Message",
-                            "sortable": True,
-                            "filter": True,
-                            "flex": 1,
-                        },
-                        {
-                            "field": "status",
-                            "headerName": "Status",
-                            "sortable": True,
-                            "filter": True,
-                            "width": 120,
-                        },
-                        {
-                            "headerName": "Action",
-                            "field": "is_acknowledged",
-                            "cellRenderer": """
-                                function(params) {
-                                    if (params.data.is_acknowledged) {
-                                        return '<span>✅</span>';
-                                    } else {
-                                        return '<span style="color: #4F46E5; font-weight: bold; cursor: pointer;">ACKNOWLEDGE</span>';
-                                    }
-                                }
-                            """,
-                            "width": 150,
-                        },
-                    ],
-                    row_data=AlertState.live_grid_data,
-                    pagination=True,
-                    pagination_page_size=20,
-                    on_cell_clicked=AlertState.handle_grid_action,
-                    theme="alpine",
-                    width="100%",
-                    height="600px",
+                rx.el.table(
+                    rx.el.thead(
+                        rx.el.tr(
+                            sortable_header("Time", "timestamp"),
+                            sortable_header("Level", "importance"),
+                            sortable_header("Message", "message"),
+                            sortable_header("Status", "status"),
+                            rx.el.th(
+                                "Action",
+                                class_name="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider",
+                            ),
+                        ),
+                        class_name="bg-gray-50",
+                    ),
+                    rx.el.tbody(
+                        rx.cond(
+                            AlertState.paginated_live_events.length() > 0,
+                            rx.foreach(AlertState.paginated_live_events, live_row),
+                            rx.el.tr(
+                                rx.el.td(
+                                    "No active alerts to display.",
+                                    col_span=5,
+                                    class_name="px-6 py-12 text-center text-sm text-gray-500 italic",
+                                )
+                            ),
+                        ),
+                        class_name="bg-white divide-y divide-gray-100",
+                    ),
+                    class_name="min-w-full divide-y divide-gray-200",
                 ),
-                class_name="w-full h-[600px] overflow-hidden",
+                class_name="overflow-x-auto min-h-[400px]",
+            ),
+            rx.cond(
+                AlertState.live_events_count > 0,
+                rx.el.div(
+                    rx.el.div(
+                        rx.el.p(
+                            f"Showing {AlertState.live_start_index} to {AlertState.live_end_index} of {AlertState.live_events_count} results",
+                            class_name="text-sm text-gray-700",
+                        ),
+                        class_name="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between",
+                    ),
+                    rx.el.div(
+                        rx.el.nav(
+                            rx.el.button(
+                                "Previous",
+                                on_click=AlertState.prev_live_page,
+                                disabled=AlertState.live_page == 1,
+                                class_name=rx.cond(
+                                    AlertState.live_page == 1,
+                                    "relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed",
+                                    "relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50",
+                                ),
+                            ),
+                            rx.el.button(
+                                "Next",
+                                on_click=AlertState.next_live_page,
+                                disabled=AlertState.live_page
+                                == AlertState.live_total_pages,
+                                class_name=rx.cond(
+                                    AlertState.live_page == AlertState.live_total_pages,
+                                    "ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed",
+                                    "ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50",
+                                ),
+                            ),
+                            class_name="relative z-0 inline-flex rounded-md shadow-sm",
+                        ),
+                        class_name="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-4 sm:mt-0",
+                    ),
+                    class_name="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6",
+                ),
             ),
             class_name="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden",
         ),
