@@ -22,9 +22,18 @@
 - [x] Historical Blotter with all columns (Time, Ticker, Message, Importance, Ack Status, Comment)
 
 ## Phase 4: Performance Optimization ✅
-- [x] Replace basic table with sortable data table in Live Blotter
-- [x] Implement column sorting (click headers to sort)
-- [x] Add pagination to Live Blotter (10 rows per page)
+- [x] Implement sortable data table in Live Blotter with clickable column headers
+- [x] Add column sorting (click headers to toggle asc/desc)
+- [x] Add pagination to Live Blotter (10 rows per page with Previous/Next)
 - [x] Implement server-side filtering for Historical Blotter with importance filter and text search
 - [x] Add pagination to Historical Blotter with Previous/Next buttons
-- [x] Note: AG Grid (reflex-ag-grid) has compatibility issues; using rx.table with custom sorting instead
+- [x] Optimize backend filtering with early returns and limits
+- [x] Note: AG Grid (reflex-ag-grid) has ResizeObserver compatibility issues; using optimized rx.table with sorting instead
+
+## Phase 5: Server-Side Search Optimization ✅
+- [x] Refactored _get_filtered_events() to use efficient filtering logic
+- [x] Added history_page_size limit (default 10, configurable up to 100)
+- [x] Implemented offset-based pagination with filtered_history_count
+- [x] Added proper pagination controls (Previous/Next with disabled states)
+- [x] Optimized live_grid_data with proper filtering before sorting
+- [x] Note: True SQL WHERE/LIKE requires migrating rx.Base models to rx.Model with table=True
