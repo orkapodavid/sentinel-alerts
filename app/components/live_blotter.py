@@ -99,7 +99,7 @@ def live_blotter() -> rx.Component:
                 ),
                 class_name="flex justify-between items-center p-6 border-b border-gray-100",
             ),
-            rx.el.div(
+            rx.box(
                 ag_grid(
                     id="live_grid",
                     column_defs=column_defs,
@@ -110,10 +110,11 @@ def live_blotter() -> rx.Component:
                         "resizable": True,
                         "filter": True,
                     },
-                    style={"height": "100%", "width": "100%"},
-                    suppressBrowserResizeObserver=True,
+                    width="100%",
+                    height="100%",
                 ),
                 class_name="w-full h-[500px]",
+                style={"height": "500px", "width": "100%"},
             ),
             class_name="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden",
         ),
