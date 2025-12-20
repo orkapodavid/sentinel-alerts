@@ -1,57 +1,33 @@
 import reflex as rx
-import reflex_ag_grid as ag
+from reflex_ag_grid import ag_grid
 from app.states.alert_state import AlertState
 from app.models import AlertEvent
 
-badge_renderer = """
-function(params) {
-    if (!params.value) return '';
-    const map = {
-        'critical': 'bg-red-100 text-red-800',
-        'high': 'bg-orange-100 text-orange-800',
-        'medium': 'bg-yellow-100 text-yellow-800',
-        'low': 'bg-blue-100 text-blue-800'
-    };
-    const colorClass = map[params.value.toLowerCase()] || 'bg-gray-100 text-gray-800';
-    return `<span class="px-2 py-0.5 rounded text-xs font-medium ${colorClass}">${params.value.toUpperCase()}</span>`;
-}
-"""
-action_renderer = """
-function(params) {
-    if (params.data.is_acknowledged) {
-        return '<span class="text-green-600 font-medium text-xs flex items-center justify-end h-full"><svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Ack</span>';
-    } else {
-        return '<div class="flex justify-end items-center h-full"><button class="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded hover:bg-indigo-200 transition-colors">Acknowledge</button></div>';
-    }
-}
-"""
 column_defs = [
-    ag.column_def(
+    ag_grid.column_def(
         field="timestamp",
         header_name="Time",
-        filter=ag.filters.text,
+        filter=ag_grid.filters.text,
         width=120,
         suppress_menu=True,
     ),
-    ag.column_def(
+    ag_grid.column_def(
         field="importance",
         header_name="Importance",
-        filter=ag.filters.text,
+        filter=ag_grid.filters.text,
         width=140,
-        cell_renderer=badge_renderer,
     ),
-    ag.column_def(
+    ag_grid.column_def(
         field="message",
         header_name="Message",
-        filter=ag.filters.text,
+        filter=ag_grid.filters.text,
         flex=1,
         min_width=300,
     ),
-    ag.column_def(
+    ag_grid.column_def(
         field="action_label",
         header_name="Action",
         width=160,
-        cell_renderer=action_renderer,
         cell_style={"cursor": "pointer"},
         sortable=False,
         filter=False,
@@ -124,7 +100,7 @@ def live_blotter() -> rx.Component:
                 class_name="flex justify-between items-center p-6 border-b border-gray-100",
             ),
             rx.el.div(
-                ag.ag_grid(
+                ag_grid(
                     id="live_grid",
                     column_defs=column_defs,
                     row_data=AlertState.ag_grid_events,
