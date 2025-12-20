@@ -55,19 +55,15 @@ class AlertState(rx.State):
         )
 
     @rx.var
-    def displayed_events(self) -> list[AlertEvent]:
+    def live_grid_data(self) -> list[dict]:
         """
-        Filter and sort events for the Live Blotter.
-        Filter Logic:
+        Return formatted data for the AG Grid Live Blotter.
+        Logic:
            - Serious/High importance: Show until is_acknowledged is True
-           - Medium/Low importance: Show only if timestamp is within display_duration_minutes of the rule
-        Sorting:
-           - Primary: Importance (Serious=4, High=3, Med=2, Low=1)
-           - Secondary: Timestamp (Descending)
+           - Medium/Low importance: Show only if timestamp is within display_duration_minutes
         """
-        filtered = []
+        data = []
         rules_map = {r.id: r for r in self.rules}
-        importance_map = {"critical": 4, "high": 3, "medium": 2, "low": 1}
         for event in self.events:
             keep = False
             imp = event.importance.lower()
@@ -82,15 +78,34 @@ class AlertState(rx.State):
                 if ts >= cutoff:
                     keep = True
             if keep:
-                filtered.append(event)
+                status_text = "Acknowledged" if event.is_acknowledged else "Pending"
+                action_text = "" if event.is_acknowledged else "ACKNOWLEDGE"
+                data.append(
+                    {
+                        "id": event.id,
+                        "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                        "importance": event.importance.upper(),
+                        "message": event.message,
+                        "status": status_text,
+                        "action": action_text,
+                        "is_acknowledged": event.is_acknowledged,
+                    }
+                )
+        importance_map = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
+        data.sort(
+            key=lambda x: (importance_map.get(x["importance"], 0), x["timestamp"]),
+            reverse=True,
+        )
+        return data
 
-        @rx.event
-        def sort_key(e: AlertEvent):
-            imp_score = importance_map.get(e.importance.lower(), 0)
-            ts = e.timestamp if e.timestamp else datetime.min
-            return (imp_score, ts)
-
-        return sorted(filtered, key=sort_key, reverse=True)
+    @rx.event
+    def handle_live_grid_click(self, cell_event: dict):
+        """Handle clicks on the live grid, specifically the Action column."""
+        col_id = cell_event.get("colId")
+        row_data = cell_event.get("data")
+        if col_id == "action" and row_data:
+            if not row_data.get("is_acknowledged"):
+                self.open_acknowledge_modal(row_data.get("id"))
 
     @rx.event
     def tick(self, _=None):
@@ -305,52 +320,40 @@ class AlertState(rx.State):
     history_page_size: int = 10
 
     @rx.var
-    def _filtered_sorted_all(self) -> list[dict]:
+    def _filtered_events_raw(self) -> list[AlertEvent]:
         """
-        Return enriched event history with filters applied (Internal use).
-        Returns a list of dictionaries to allow including the derived 'ticker' field.
+        Efficient In-Memory Filtering:
+        Instead of converting all events to dicts immediately, we first filter
+        the list of AlertEvent objects. This simulates 'server-side' logic by
+        avoiding heavy serialization for off-page items.
         """
-        rules_map = {r.id: r for r in self.rules}
-        results = []
+        filtered = []
         search_q = self.history_search_query.lower().strip()
         filter_imp = self.history_importance_filter.lower()
-        for e in self.events:
-            ticker = "-"
-            rule = rules_map.get(e.rule_id)
-            if rule:
-                try:
-                    params = json.loads(rule.parameters)
-                    ticker = params.get("ticker", "-")
-                except Exception as e:
-                    logging.exception(
-                        f"Error parsing rule parameters for ticker extraction: {e}"
-                    )
-                    pass
+        rules_map = {r.id: r for r in self.rules}
+        for e in reversed(self.events):
             if filter_imp != "all" and e.importance.lower() != filter_imp:
                 continue
             if search_q:
+                ticker = "-"
+                rule = rules_map.get(e.rule_id)
+                if rule:
+                    try:
+                        params = json.loads(rule.parameters)
+                        ticker = params.get("ticker", "-")
+                    except Exception as e:
+                        logging.exception(
+                            f"Error parsing parameters for filtering: {e}"
+                        )
                 if search_q not in e.message.lower() and search_q not in ticker.lower():
                     continue
-            results.append(
-                {
-                    "id": e.id,
-                    "timestamp": e.timestamp.isoformat() if e.timestamp else "",
-                    "message": e.message,
-                    "importance": e.importance,
-                    "is_acknowledged": e.is_acknowledged,
-                    "acknowledged_timestamp": e.acknowledged_timestamp.isoformat()
-                    if e.acknowledged_timestamp
-                    else None,
-                    "ack_comment": e.comment or "",
-                    "ticker": ticker,
-                }
-            )
-        return sorted(results, key=lambda x: x["timestamp"], reverse=True)
+            filtered.append(e)
+        return filtered
 
     @rx.var
     def filtered_history_count(self) -> int:
         """Total count of filtered items for pagination."""
-        return len(self._filtered_sorted_all)
+        return len(self._filtered_events_raw)
 
     @rx.var
     def history_total_pages(self) -> int:
@@ -376,10 +379,40 @@ class AlertState(rx.State):
 
     @rx.var
     def paginated_history(self) -> list[dict]:
-        """Slice of the history for the current page."""
+        """
+        Pagination Logic:
+        Only convert the displayed slice of events to dictionaries.
+        This significantly reduces overhead compared to converting the entire dataset.
+        """
         start = (self.history_page - 1) * self.history_page_size
         end = start + self.history_page_size
-        return self._filtered_sorted_all[start:end]
+        slice_events = self._filtered_events_raw[start:end]
+        results = []
+        rules_map = {r.id: r for r in self.rules}
+        for e in slice_events:
+            ticker = "-"
+            rule = rules_map.get(e.rule_id)
+            if rule:
+                try:
+                    params = json.loads(rule.parameters)
+                    ticker = params.get("ticker", "-")
+                except Exception as e:
+                    logging.exception(f"Error parsing parameters for pagination: {e}")
+            results.append(
+                {
+                    "id": e.id,
+                    "timestamp": e.timestamp.isoformat() if e.timestamp else "",
+                    "message": e.message,
+                    "importance": e.importance,
+                    "is_acknowledged": e.is_acknowledged,
+                    "acknowledged_timestamp": e.acknowledged_timestamp.isoformat()
+                    if e.acknowledged_timestamp
+                    else None,
+                    "ack_comment": e.comment or "",
+                    "ticker": ticker,
+                }
+            )
+        return results
 
     @rx.event
     def next_history_page(self):
@@ -392,76 +425,6 @@ class AlertState(rx.State):
         """Go to previous page."""
         if self.history_page > 1:
             self.history_page -= 1
-
-    live_sort_col: str = "timestamp"
-    live_sort_reverse: bool = True
-    live_page: int = 1
-    live_page_size: int = 10
-
-    @rx.var
-    def live_events_sorted(self) -> list[AlertEvent]:
-        """Return sorted live events."""
-        events = self.displayed_events
-        importance_map = {"critical": 4, "high": 3, "medium": 2, "low": 1}
-
-        @rx.event
-        def get_sort_key(e: AlertEvent):
-            val = getattr(e, self.live_sort_col, None)
-            if self.live_sort_col == "importance":
-                return importance_map.get(str(val).lower(), 0)
-            if self.live_sort_col == "timestamp":
-                return val if val else datetime.min
-            return str(val) if val else ""
-
-        return sorted(events, key=get_sort_key, reverse=self.live_sort_reverse)
-
-    @rx.var
-    def live_events_paginated(self) -> list[AlertEvent]:
-        """Paginated slice of live events."""
-        start = (self.live_page - 1) * self.live_page_size
-        return self.live_events_sorted[start : start + self.live_page_size]
-
-    @rx.var
-    def live_total_pages(self) -> int:
-        """Total pages for live blotter."""
-        count = len(self.displayed_events)
-        return math.ceil(count / self.live_page_size) if count > 0 else 1
-
-    @rx.var
-    def live_start_index(self) -> int:
-        """Live display start index."""
-        if len(self.displayed_events) == 0:
-            return 0
-        return (self.live_page - 1) * self.live_page_size + 1
-
-    @rx.var
-    def live_end_index(self) -> int:
-        """Live display end index."""
-        end = self.live_page * self.live_page_size
-        return min(end, len(self.displayed_events))
-
-    @rx.event
-    def sort_live(self, col: str):
-        """Sort live blotter by column."""
-        if self.live_sort_col == col:
-            self.live_sort_reverse = not self.live_sort_reverse
-        else:
-            self.live_sort_col = col
-            self.live_sort_reverse = (
-                True if col in ["timestamp", "importance"] else False
-            )
-
-    @rx.event
-    def next_live_page(self):
-        """Next live page."""
-        if self.live_page < self.live_total_pages:
-            self.live_page += 1
-
-    @rx.event
-    def prev_live_page(self):
-        """Previous live page."""
-        if self.live_page > 1:
-            self.live_page -= 1
 
     @rx.event(background=True)
     async def on_load(self):
