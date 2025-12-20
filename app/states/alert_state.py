@@ -3,7 +3,6 @@ import json
 import random
 import logging
 from datetime import datetime, timedelta
-from sqlmodel import select
 from app.models import AlertRule, AlertEvent
 
 PREDEFINED_TEMPLATES = {
@@ -42,10 +41,7 @@ class AlertState(rx.State):
     predefined_rule_options: list[str] = list(PREDEFINED_TEMPLATES.keys())
 
     def _load_data(self):
-        """Refresh data from database."""
-        with rx.session() as session:
-            self.rules = session.exec(select(AlertRule)).all()
-            self.events = session.exec(select(AlertEvent)).all()
+        """Refresh data from memory."""
         self._update_stats()
 
     def _update_stats(self):
@@ -115,79 +111,75 @@ class AlertState(rx.State):
     def submit_acknowledgement(self):
         """Mark event as acknowledged and save comment."""
         if self.selected_event_id != -1:
-            with rx.session() as session:
-                event = session.get(AlertEvent, self.selected_event_id)
-                if event:
+            updated_events = []
+            for event in self.events:
+                if event.id == self.selected_event_id:
                     event.is_acknowledged = True
                     event.acknowledged_timestamp = datetime.utcnow()
                     event.comment = self.acknowledgement_comment
-                    session.add(event)
-                    session.commit()
+                updated_events.append(event)
+            self.events = updated_events
             self.selected_event_id = -1
             self._load_data()
 
     def _initialize_db(self):
         """Initialize mock data if empty."""
-        with rx.session() as session:
-            existing = session.exec(select(AlertRule)).first()
-            if not existing:
-                rules = [
-                    AlertRule(
-                        name="High CPU Usage",
-                        parameters=json.dumps(
-                            {"metric": "cpu", "threshold": 90, "ticker": "SRV-001"}
-                        ),
-                        importance="high",
-                        period_seconds=300,
-                        display_duration_minutes=1440,
-                        action_config=json.dumps({"email": "admin@example.com"}),
-                        comment="Critical server monitoring",
-                        is_active=True,
+        if not self.rules:
+            rules = [
+                AlertRule(
+                    id=1,
+                    name="High CPU Usage",
+                    parameters=json.dumps(
+                        {"metric": "cpu", "threshold": 90, "ticker": "SRV-001"}
                     ),
-                    AlertRule(
-                        name="Memory Leak Warning",
-                        parameters=json.dumps(
-                            {"metric": "memory", "threshold": 85, "ticker": "SRV-DB-02"}
-                        ),
-                        importance="medium",
-                        period_seconds=600,
-                        display_duration_minutes=720,
-                        action_config=json.dumps({"slack": "#dev-ops"}),
-                        comment="Monitor for potential leaks",
-                        is_active=True,
+                    importance="high",
+                    period_seconds=300,
+                    display_duration_minutes=1440,
+                    action_config=json.dumps({"email": "admin@example.com"}),
+                    comment="Critical server monitoring",
+                    is_active=True,
+                ),
+                AlertRule(
+                    id=2,
+                    name="Memory Leak Warning",
+                    parameters=json.dumps(
+                        {"metric": "memory", "threshold": 85, "ticker": "SRV-DB-02"}
                     ),
-                    AlertRule(
-                        name="Low Disk Space",
-                        parameters=json.dumps(
-                            {"metric": "disk", "threshold": 10, "ticker": "SRV-STORAGE"}
-                        ),
-                        importance="critical",
-                        period_seconds=3600,
-                        display_duration_minutes=2880,
-                        action_config=json.dumps({"pagerduty": "urgent"}),
-                        comment="Storage capacity warning",
-                        is_active=True,
+                    importance="medium",
+                    period_seconds=600,
+                    display_duration_minutes=720,
+                    action_config=json.dumps({"slack": "#dev-ops"}),
+                    comment="Monitor for potential leaks",
+                    is_active=True,
+                ),
+                AlertRule(
+                    id=3,
+                    name="Low Disk Space",
+                    parameters=json.dumps(
+                        {"metric": "disk", "threshold": 10, "ticker": "SRV-STORAGE"}
                     ),
-                    AlertRule(
-                        name="API Latency Spike",
-                        parameters=json.dumps(
-                            {
-                                "metric": "latency",
-                                "threshold": 500,
-                                "ticker": "API-GATEWAY",
-                            }
-                        ),
-                        importance="low",
-                        period_seconds=60,
-                        display_duration_minutes=60,
-                        action_config=json.dumps({"log": "true"}),
-                        comment="Performance degradation check",
-                        is_active=False,
+                    importance="critical",
+                    period_seconds=3600,
+                    display_duration_minutes=2880,
+                    action_config=json.dumps({"pagerduty": "urgent"}),
+                    comment="Storage capacity warning",
+                    is_active=True,
+                ),
+                AlertRule(
+                    id=4,
+                    name="API Latency Spike",
+                    parameters=json.dumps(
+                        {"metric": "latency", "threshold": 500, "ticker": "API-GATEWAY"}
                     ),
-                ]
-                for r in rules:
-                    session.add(r)
-                session.commit()
+                    importance="low",
+                    period_seconds=60,
+                    display_duration_minutes=60,
+                    action_config=json.dumps({"log": "true"}),
+                    comment="Performance degradation check",
+                    is_active=False,
+                ),
+            ]
+            self.rules = rules
         self._load_data()
 
     @rx.event
@@ -196,6 +188,9 @@ class AlertState(rx.State):
         new_events_count = 0
         active_rules = [r for r in self.rules if r.is_active]
         events_to_add = []
+        current_max_id = 0
+        if self.events:
+            current_max_id = max([e.id for e in self.events if e.id is not None] or [0])
         for rule in active_rules:
             if random.random() < 0.4:
                 try:
@@ -205,7 +200,9 @@ class AlertState(rx.State):
                     threshold = params.get("threshold", 0)
                     current_value = threshold + random.randint(1, 20)
                     message = f"Alert triggered for {ticker}: {metric} is {current_value} (Threshold: {threshold})"
+                    current_max_id += 1
                     event = AlertEvent(
+                        id=current_max_id,
                         rule_id=rule.id,
                         message=message,
                         importance=rule.importance,
@@ -220,10 +217,7 @@ class AlertState(rx.State):
                     )
                     continue
         if events_to_add:
-            with rx.session() as session:
-                for e in events_to_add:
-                    session.add(e)
-                session.commit()
+            self.events = self.events + events_to_add
             self._load_data()
             return rx.toast.info(f"Generated {new_events_count} new mock alerts.")
         else:
@@ -264,7 +258,11 @@ class AlertState(rx.State):
             if self.rule_form_action
             else "{}"
         )
+        new_id = 1
+        if self.rules:
+            new_id = max([r.id for r in self.rules if r.id is not None] or [0]) + 1
         new_rule = AlertRule(
+            id=new_id,
             name=self.rule_form_name,
             parameters=self.rule_form_parameters,
             importance=self.rule_form_importance,
@@ -274,9 +272,7 @@ class AlertState(rx.State):
             comment="Manual Entry",
             is_active=True,
         )
-        with rx.session() as session:
-            session.add(new_rule)
-            session.commit()
+        self.rules = self.rules + [new_rule]
         self._load_data()
         self.rule_form_name = ""
         self.rule_form_action = ""
@@ -287,23 +283,19 @@ class AlertState(rx.State):
     @rx.event
     def delete_rule(self, rule_id: int):
         """Delete a rule by ID."""
-        with rx.session() as session:
-            rule = session.get(AlertRule, rule_id)
-            if rule:
-                session.delete(rule)
-                session.commit()
+        self.rules = [r for r in self.rules if r.id != rule_id]
         self._load_data()
         return rx.toast.success("Rule deleted.")
 
     @rx.event
     def toggle_rule_active(self, rule_id: int):
         """Toggle the active status of a rule."""
-        with rx.session() as session:
-            rule = session.get(AlertRule, rule_id)
-            if rule:
+        updated_rules = []
+        for rule in self.rules:
+            if rule.id == rule_id:
                 rule.is_active = not rule.is_active
-                session.add(rule)
-                session.commit()
+            updated_rules.append(rule)
+        self.rules = updated_rules
         self._load_data()
 
     history_importance_filter: str = "All"
