@@ -41,6 +41,21 @@ def rule_form() -> rx.Component:
                         class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
                     ),
                 ),
+                rx.el.div(
+                    rx.el.label(
+                        "Category",
+                        class_name="block text-sm font-medium text-gray-700 mb-1",
+                    ),
+                    rx.el.select(
+                        rx.el.option("General", value="General"),
+                        rx.el.option("Market", value="Market"),
+                        rx.el.option("System", value="System"),
+                        rx.el.option("Security", value="Security"),
+                        value=AlertState.rule_form_category,
+                        on_change=AlertState.set_rule_form_category,
+                        class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
+                    ),
+                ),
                 class_name="grid grid-cols-3 gap-4 mb-4",
             ),
             rx.el.div(
@@ -155,28 +170,35 @@ def rule_item(rule: AlertRule) -> rx.Component:
         rx.el.div(
             rx.el.div(
                 rx.el.h4(rule.name, class_name="text-base font-medium text-gray-900"),
-                rx.el.span(
-                    rule.importance.upper(),
-                    class_name=rx.match(
-                        rule.importance.lower(),
-                        (
-                            "critical",
-                            "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800",
-                        ),
-                        (
-                            "high",
-                            "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800",
-                        ),
-                        (
-                            "medium",
-                            "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800",
-                        ),
-                        (
-                            "low",
-                            "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800",
-                        ),
-                        "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800",
+                rx.el.div(
+                    rx.el.span(
+                        rule.category,
+                        class_name="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200",
                     ),
+                    rx.el.span(
+                        rule.importance.upper(),
+                        class_name=rx.match(
+                            rule.importance.lower(),
+                            (
+                                "critical",
+                                "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800",
+                            ),
+                            (
+                                "high",
+                                "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800",
+                            ),
+                            (
+                                "medium",
+                                "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800",
+                            ),
+                            (
+                                "low",
+                                "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800",
+                            ),
+                            "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800",
+                        ),
+                    ),
+                    class_name="flex items-center",
                 ),
                 class_name="flex items-center",
             ),

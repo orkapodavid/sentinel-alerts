@@ -10,6 +10,7 @@ class AlertRule(rx.Base):
     name: str = ""
     parameters: str = "{}"
     importance: str = "medium"
+    category: str = "General"
     period_seconds: int = 60
     display_duration_minutes: int = 1440
     action_config: str = "{}"
@@ -27,6 +28,7 @@ class AlertEvent(rx.Base):
     timestamp: Optional[datetime] = None
     message: str = ""
     importance: str = "medium"
+    category: str = "General"
     is_acknowledged: bool = False
     acknowledged_timestamp: Optional[datetime] = None
     action_taken: Optional[str] = None

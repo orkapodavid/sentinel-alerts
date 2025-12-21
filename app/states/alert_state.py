@@ -39,6 +39,7 @@ class AlertState(rx.State):
     acknowledgement_comment: str = ""
     rule_form_name: str = ""
     rule_form_importance: str = "medium"
+    rule_form_category: str = "General"
     rule_form_action: str = ""
     rule_form_period_value: int = 60
     rule_form_period_unit: str = "Minutes"
@@ -104,11 +105,37 @@ class AlertState(rx.State):
         if self.live_page > 1:
             self.live_page -= 1
 
+    quick_filter: str = "All"
+
+    @rx.event
+    def set_quick_filter(self, value: str):
+        self.quick_filter = value
+        self.live_page = 1
+
+    def _get_logo_url(self, ticker: str) -> str:
+        """Generate a logo URL for a given ticker or name."""
+        if not ticker or ticker == "-":
+            return ""
+        domain_map = {
+            "AAPL": "apple.com",
+            "NVDA": "nvidia.com",
+            "MSFT": "microsoft.com",
+            "GOOGL": "google.com",
+            "AMZN": "amazon.com",
+            "TSLA": "tesla.com",
+            "META": "meta.com",
+            "NFLX": "netflix.com",
+        }
+        domain = domain_map.get(ticker.upper())
+        if domain:
+            return f"https://logo.clearbit.com/{domain}"
+        return f"https://ui-avatars.com/api/?name={ticker}&background=random&color=fff&size=64&font-size=0.4"
+
     @rx.var
     def all_live_events(self) -> list[dict]:
         """
         Return all relevant events for the Live Blotter.
-        Filters relevant events in memory.
+        Filters relevant events in memory based on importance, recency, and quick filters.
         """
         data = []
         critical_high = [
@@ -138,22 +165,50 @@ class AlertState(rx.State):
                 cutoff = self.current_time - timedelta(minutes=duration_mins)
                 if event.timestamp and event.timestamp >= cutoff:
                     keep = True
-            if keep:
-                status_text = "Acknowledged" if event.is_acknowledged else "Pending"
-                action_label = "✅" if event.is_acknowledged else "ACKNOWLEDGE"
-                data.append(
-                    {
-                        "id": event.id,
-                        "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-                        if event.timestamp
-                        else "",
-                        "importance": event.importance.upper(),
-                        "message": event.message,
-                        "status": status_text,
-                        "is_acknowledged": event.is_acknowledged,
-                        "action_label": action_label,
-                    }
-                )
+            if not keep:
+                continue
+            if self.quick_filter == "Critical":
+                if event.importance not in ["critical", "high"]:
+                    continue
+            elif self.quick_filter == "Market":
+                if event.category != "Market":
+                    continue
+            elif self.quick_filter == "System":
+                if event.category != "System":
+                    continue
+            status_text = "Acknowledged" if event.is_acknowledged else "Pending"
+            action_label = "✅" if event.is_acknowledged else "ACKNOWLEDGE"
+            ticker = "-"
+            rule = self._get_rule_by_id(event.rule_id)
+            if rule:
+                try:
+                    params = json.loads(rule.parameters)
+                    ticker = (
+                        params.get("ticker")
+                        or params.get("server")
+                        or params.get("service")
+                        or "-"
+                    )
+                except Exception as e:
+                    logging.exception(
+                        f"Error parsing parameters for rule {rule.id}: {e}"
+                    )
+            data.append(
+                {
+                    "id": event.id,
+                    "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                    if event.timestamp
+                    else "",
+                    "importance": event.importance.upper(),
+                    "category": event.category,
+                    "message": event.message,
+                    "status": status_text,
+                    "is_acknowledged": event.is_acknowledged,
+                    "action_label": action_label,
+                    "ticker": ticker,
+                    "logo_url": self._get_logo_url(ticker),
+                }
+            )
         return data
 
     @rx.event
@@ -247,6 +302,7 @@ class AlertState(rx.State):
                     trigger_script="cpu_usage_trigger",
                     parameters=json.dumps({"server": "PROD-CORE-01", "threshold": 90}),
                     importance="high",
+                    category="System",
                     period_seconds=300,
                     display_duration_minutes=1440,
                     action_config=json.dumps({"email": "ops@sentinel.io"}),
@@ -258,6 +314,7 @@ class AlertState(rx.State):
                     trigger_script="price_surge_trigger",
                     parameters=json.dumps({"ticker": "AAPL", "threshold": 180.0}),
                     importance="medium",
+                    category="Market",
                     period_seconds=60,
                     display_duration_minutes=60,
                     action_config=json.dumps({"slack": "#trading"}),
@@ -269,6 +326,7 @@ class AlertState(rx.State):
                     trigger_script="volume_spike_trigger",
                     parameters=json.dumps({"ticker": "NVDA", "avg_volume": 5000000}),
                     importance="low",
+                    category="Market",
                     period_seconds=300,
                     display_duration_minutes=120,
                     action_config=json.dumps({"log": "true"}),
@@ -302,6 +360,7 @@ class AlertState(rx.State):
                                 importance=output.importance.lower(),
                                 timestamp=datetime.utcnow(),
                                 is_acknowledged=False,
+                                category=rule.category,
                             )
                             self.next_event_id += 1
                             self.events.append(event)
@@ -335,6 +394,10 @@ class AlertState(rx.State):
                 break
 
     @rx.event
+    def set_rule_form_category(self, value: str):
+        self.rule_form_category = value
+
+    @rx.event
     def add_rule(self):
         try:
             json.loads(self.rule_form_parameters)
@@ -361,6 +424,7 @@ class AlertState(rx.State):
             name=self.rule_form_name,
             parameters=self.rule_form_parameters,
             importance=self.rule_form_importance,
+            category=self.rule_form_category,
             period_seconds=period_seconds,
             display_duration_minutes=display_duration_minutes,
             action_config=action_config,
@@ -376,6 +440,7 @@ class AlertState(rx.State):
         )
         self.rule_form_name = ""
         self.rule_form_action = ""
+        self.rule_form_category = "General"
         self.rule_form_trigger_script = "custom"
         self.rule_form_parameters = "{}"
         return rx.toast.success("Rule created.")
