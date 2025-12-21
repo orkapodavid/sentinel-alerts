@@ -39,7 +39,7 @@ base_columns = [
         "sortable": True,
         "filter": True,
         "width": 170,
-        "cellStyle": {"display": "flex", "alignItems": "center"},
+        "cellStyle": "params => ({ display: 'flex', alignItems: 'center' })",
     },
     {
         "field": "ticker",
@@ -47,7 +47,7 @@ base_columns = [
         "sortable": True,
         "filter": True,
         "width": 140,
-        "cellStyle": {"display": "flex", "alignItems": "center", "fontWeight": "600"},
+        "cellStyle": "params => ({ display: 'flex', alignItems: 'center', fontWeight: '600' })",
     },
     {
         "field": "category",
@@ -72,7 +72,7 @@ base_columns = [
         "filter": True,
         "flex": 1,
         "minWidth": 300,
-        "cellStyle": {"display": "flex", "alignItems": "center"},
+        "cellStyle": "params => ({ display: 'flex', alignItems: 'center' })",
     },
     {
         "field": "status",
@@ -92,14 +92,7 @@ def get_live_columns() -> list[dict]:
             "field": "action_label",
             "headerName": "Action",
             "width": 140,
-            "cellStyle": {
-                "display": "flex",
-                "alignItems": "center",
-                "justifyContent": "center",
-                "cursor": "pointer",
-                "fontWeight": "600",
-                "color": "#4f46e5",
-            },
+            "cellStyle": "params => ({ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: '600', color: '#4f46e5' })",
         }
     ]
 
@@ -111,13 +104,6 @@ def get_history_columns() -> list[dict]:
             "field": "action_label",
             "headerName": "Action",
             "width": 140,
-            "cellStyle": {
-                "display": "flex",
-                "alignItems": "center",
-                "justifyContent": "center",
-                "cursor": "pointer",
-                "fontWeight": "600",
-                "color": "#4b5563",
-            },
+            "cellStyle": "params => ({ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: '600', color: '#4b5563' })",
         }
     ]
