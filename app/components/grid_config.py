@@ -2,8 +2,8 @@ import reflex as rx
 
 ticker_renderer = """
 function(params) {
-    if (!params.value) return '';
-    var logo = params.data.logo_url;
+    if (!params || !params.value) return '';
+    var logo = params.data ? params.data.logo_url : '';
     return `<div style="display:flex; align-items:center; gap:8px; height: 100%;">
         <img src="${logo}" style="width:24px; height:24px; border-radius:50%; object-fit:contain; background:#f9fafb;" onError="this.style.display='none'"/>
         <span style="font-weight:600; color: #1f2937;">${params.value}</span>
@@ -12,7 +12,8 @@ function(params) {
 """
 importance_renderer = """
 function(params) {
-    var val = params.value.toLowerCase();
+    if (!params || !params.value) return '';
+    var val = String(params.value).toLowerCase();
     var color = '#4b5563';
     var bg = '#f3f4f6';
     var border = '#e5e7eb';
@@ -27,6 +28,7 @@ function(params) {
 """
 category_renderer = """
 function(params) {
+    if (!params || !params.value) return '';
     var val = params.value;
     var colors = {
         'Market': {c: '#7c3aed', b: '#f3e8ff', br: '#d8b4fe'},
@@ -42,6 +44,7 @@ function(params) {
 """
 status_renderer = """
 function(params) {
+    if (!params || !params.value) return '';
     var val = params.value;
     var color = val === 'Acknowledged' ? '#16a34a' : '#dc2626';
     return `<div style="display:flex; align-items:center; height: 100%; color: ${color}; font-weight: 500;">${val}</div>`;

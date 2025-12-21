@@ -150,14 +150,16 @@ class AlertState(rx.State):
         else:
             action_label = "" if event.is_acknowledged else "ACKNOWLEDGE"
         ticker = event.ticker if event.ticker else "-"
+        importance = event.importance if event.importance else "medium"
+        category = event.category if event.category else "General"
         return {
             "id": event.id,
             "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
             if event.timestamp
             else "",
-            "importance": event.importance.upper(),
-            "category": event.category,
-            "message": event.message,
+            "importance": importance.upper(),
+            "category": category,
+            "message": event.message or "",
             "status": status_text,
             "is_acknowledged": event.is_acknowledged,
             "acknowledged_timestamp": event.acknowledged_timestamp.strftime(
