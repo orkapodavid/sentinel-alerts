@@ -1,53 +1,35 @@
 import reflex as rx
 
-ticker_renderer = """
-function(params) {
-    if (!params || !params.value) return '';
-    var logo = params.data ? params.data.logo_url : '';
-    return `<div style="display:flex; align-items:center; gap:8px; height: 100%;">
-        <img src="${logo}" style="width:24px; height:24px; border-radius:50%; object-fit:contain; background:#f9fafb;" onError="this.style.display='none'"/>
-        <span style="font-weight:600; color: #1f2937;">${params.value}</span>
-    </div>`;
+importance_style = """
+(params) => {
+    if (!params.value) return null;
+    const val = params.value.toLowerCase();
+    const common = { fontWeight: '600', display: 'flex', alignItems: 'center', height: '100%', paddingLeft: '8px' };
+    if (val === 'critical') return { ...common, color: '#991b1b', backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444' };
+    if (val === 'high') return { ...common, color: '#9a3412', backgroundColor: '#fff7ed', borderLeft: '4px solid #f97316' };
+    if (val === 'medium') return { ...common, color: '#854d0e', backgroundColor: '#fefce8', borderLeft: '4px solid #eab308' };
+    if (val === 'low') return { ...common, color: '#1e40af', backgroundColor: '#eff6ff', borderLeft: '4px solid #3b82f6' };
+    return common;
 }
 """
-importance_renderer = """
-function(params) {
-    if (!params || !params.value) return '';
-    var val = String(params.value).toLowerCase();
-    var color = '#4b5563';
-    var bg = '#f3f4f6';
-    var border = '#e5e7eb';
-
-    if (val === 'critical') { color = '#991b1b'; bg = '#fef2f2'; border = '#fecaca'; }
-    else if (val === 'high') { color = '#c2410c'; bg = '#fff7ed'; border = '#fed7aa'; }
-    else if (val === 'medium') { color = '#854d0e'; bg = '#fefce8'; border = '#fef08a'; }
-    else if (val === 'low') { color = '#1e40af'; bg = '#eff6ff'; border = '#bfdbfe'; }
-
-    return `<div style="display:flex; align-items:center; height: 100%;"><span style="color:${color}; background:${bg}; border: 1px solid ${border}; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">${params.value}</span></div>`;
+category_style = """
+(params) => {
+    if (!params.value) return null;
+    const val = params.value;
+    const common = { display: 'flex', alignItems: 'center', height: '100%', paddingLeft: '8px' };
+    if (val === 'Market') return { ...common, color: '#7c3aed', backgroundColor: '#f3e8ff' };
+    if (val === 'System') return { ...common, color: '#059669', backgroundColor: '#ecfdf5' };
+    if (val === 'Security') return { ...common, color: '#be123c', backgroundColor: '#fff1f2' };
+    if (val === 'Liquidity') return { ...common, color: '#0891b2', backgroundColor: '#ecfeff' };
+    if (val === 'News') return { ...common, color: '#ea580c', backgroundColor: '#fff7ed' };
+    return { ...common, color: '#374151', backgroundColor: '#f3f4f6' };
 }
 """
-category_renderer = """
-function(params) {
-    if (!params || !params.value) return '';
-    var val = params.value;
-    var colors = {
-        'Market': {c: '#7c3aed', b: '#f3e8ff', br: '#d8b4fe'},
-        'System': {c: '#059669', b: '#ecfdf5', br: '#6ee7b7'},
-        'Security': {c: '#be123c', b: '#fff1f2', br: '#fda4af'},
-        'Liquidity': {c: '#0891b2', b: '#ecfeff', br: '#a5f3fc'},
-        'News': {c: '#ea580c', b: '#fff7ed', br: '#fed7aa'},
-        'General': {c: '#4b5563', b: '#f9fafb', br: '#d1d5db'}
-    };
-    var style = colors[val] || colors['General'];
-    return `<div style="display:flex; align-items:center; height: 100%;"><span style="color:${style.c}; background:${style.b}; border: 1px solid ${style.br}; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500;">${val}</span></div>`;
-}
-"""
-status_renderer = """
-function(params) {
-    if (!params || !params.value) return '';
-    var val = params.value;
-    var color = val === 'Acknowledged' ? '#16a34a' : '#dc2626';
-    return `<div style="display:flex; align-items:center; height: 100%; color: ${color}; font-weight: 500;">${val}</div>`;
+status_style = """
+(params) => {
+    const common = { display: 'flex', alignItems: 'center', height: '100%' };
+    if (params.value === 'Acknowledged') return { ...common, color: '#16a34a', fontWeight: '600' };
+    return { ...common, color: '#dc2626', fontWeight: '600' };
 }
 """
 base_columns = [
@@ -64,15 +46,15 @@ base_columns = [
         "headerName": "Ticker / Source",
         "sortable": True,
         "filter": True,
-        "cellRenderer": ticker_renderer,
-        "width": 200,
+        "width": 140,
+        "cellStyle": {"display": "flex", "alignItems": "center", "fontWeight": "600"},
     },
     {
         "field": "category",
         "headerName": "Category",
         "sortable": True,
         "filter": True,
-        "cellRenderer": category_renderer,
+        "cellStyle": category_style,
         "width": 130,
     },
     {
@@ -80,7 +62,7 @@ base_columns = [
         "headerName": "Level",
         "sortable": True,
         "filter": True,
-        "cellRenderer": importance_renderer,
+        "cellStyle": importance_style,
         "width": 120,
     },
     {
@@ -97,7 +79,7 @@ base_columns = [
         "headerName": "Status",
         "sortable": True,
         "filter": True,
-        "cellRenderer": status_renderer,
+        "cellStyle": status_style,
         "width": 130,
     },
 ]
