@@ -149,24 +149,7 @@ class AlertState(rx.State):
             action_label = "View Details"
         else:
             action_label = "" if event.is_acknowledged else "ACKNOWLEDGE"
-        ticker = event.ticker
-        if not ticker or ticker == "-":
-            rule = self._get_rule_by_id(event.rule_id)
-            if rule:
-                try:
-                    params = json.loads(rule.parameters)
-                    ticker = (
-                        params.get("ticker")
-                        or params.get("server")
-                        or params.get("service")
-                        or "-"
-                    )
-                except Exception as e:
-                    logging.exception(
-                        f"Error parsing rule parameters for ticker extraction: {e}"
-                    )
-        if not ticker:
-            ticker = "-"
+        ticker = event.ticker if event.ticker else "-"
         return {
             "id": event.id,
             "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -334,6 +317,9 @@ class AlertState(rx.State):
     def _initialize_db(self):
         """Initialize mock data if empty."""
         if not self.rules:
+            self.log_system_event(
+                "System Init", "Initializing default rules and mock data...", "info"
+            )
             rules_data = [
                 dict(
                     name="Production CPU Monitor",
@@ -621,6 +607,12 @@ class AlertState(rx.State):
         """Called when page loads."""
         async with self:
             self.fetch_available_triggers()
+            if not self.system_logs:
+                self.log_system_event(
+                    "System Ready",
+                    "Dashboard application loaded successfully",
+                    "success",
+                )
             self._initialize_db()
             self._refresh_history()
             await asyncio.sleep(0.5)
