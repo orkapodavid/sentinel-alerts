@@ -20,14 +20,19 @@ def log_row(log: LogEntry) -> rx.Component:
         ),
         rx.el.div(
             rx.el.span(log.type, class_name="text-xs font-medium text-gray-900 block"),
+            rx.el.div(
+                rx.icon("user", class_name="w-3 h-3 text-gray-400 mr-1"),
+                rx.el.span(log.user, class_name="text-[10px] text-gray-500 truncate"),
+                class_name="flex items-center mt-0.5",
+            ),
             rx.cond(
                 log.ticker,
                 rx.el.span(
                     log.ticker,
-                    class_name="text-[10px] font-mono text-gray-500 bg-gray-100 px-1 rounded inline-block mt-0.5",
+                    class_name="text-[10px] font-mono text-gray-500 bg-gray-100 px-1 rounded inline-block mt-1",
                 ),
             ),
-            class_name="w-32 shrink-0",
+            class_name="w-36 shrink-0",
         ),
         rx.el.div(
             rx.el.span(log.message, class_name="text-sm text-gray-700 font-mono block"),

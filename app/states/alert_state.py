@@ -62,6 +62,7 @@ class AlertState(rx.State):
         level: str = "info",
         ticker: str | None = None,
         importance: str | None = None,
+        user: str = "Admin User",
     ):
         new_log = LogEntry(
             timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
@@ -70,6 +71,7 @@ class AlertState(rx.State):
             level=level,
             ticker=ticker,
             importance=importance,
+            user=user,
         )
         self.system_logs.insert(0, new_log)
         if len(self.system_logs) > 100:
@@ -306,12 +308,16 @@ class AlertState(rx.State):
                 event.acknowledged_timestamp = datetime.utcnow()
                 event.comment = self.acknowledgement_comment
                 self.events = list(self.events)
+                log_msg = f"Acknowledged event {event.id}: {event.message}"
+                if self.acknowledgement_comment:
+                    log_msg += f" | Comment: {self.acknowledgement_comment}"
                 self.log_system_event(
                     "Event Acknowledged",
-                    f"Acknowledged event {event.id}: {event.message}",
+                    log_msg,
                     "success",
                     ticker=event.ticker,
                     importance=event.importance,
+                    user="Admin User",
                 )
             self.selected_event_id = -1
             self._refresh_history()
@@ -320,7 +326,10 @@ class AlertState(rx.State):
         """Initialize mock data if empty."""
         if not self.rules:
             self.log_system_event(
-                "System Init", "Initializing default rules and mock data...", "info"
+                "System Init",
+                "Initializing default rules and mock data...",
+                "info",
+                user="System",
             )
             rules_data = [
                 dict(
@@ -407,6 +416,19 @@ class AlertState(rx.State):
                     )
                 self.events.append(evt)
                 self.next_event_id += 1
+            self.log_system_event(
+                "System Init",
+                f"Created {len(self.rules)} rules and {len(self.events)} mock events.",
+                "success",
+                user="System",
+            )
+            for rule in self.rules:
+                self.log_system_event(
+                    "Rule Init",
+                    f"Initialized rule: {rule.name} ({rule.category})",
+                    "info",
+                    user="System",
+                )
             self._refresh_history()
 
     @rx.event
@@ -441,10 +463,17 @@ class AlertState(rx.State):
         if new_events_count > 0:
             self.events = list(self.events)
             self._refresh_history()
+            triggered_rules = [
+                r.name
+                for r in active_rules
+                if r.last_output and json.loads(r.last_output).get("triggered")
+            ]
+            triggered_str = ", ".join(triggered_rules) if triggered_rules else "Unknown"
             self.log_system_event(
                 "Trigger Execution",
-                f"Generated {new_events_count} alerts from active rules",
+                f"Generated {new_events_count} alerts. Sources: {triggered_str}",
                 "info",
+                user="System",
             )
             return rx.toast.info(
                 f"Generated {new_events_count} new alerts from triggers."
@@ -506,7 +535,10 @@ class AlertState(rx.State):
         self.rules.append(new_rule)
         self.rules = list(self.rules)
         self.log_system_event(
-            "Rule Created", f"Created rule: {new_rule.name}", "success"
+            "Rule Created",
+            f"Created rule '{new_rule.name}' ({new_rule.category}) with params: {new_rule.parameters}",
+            "success",
+            user="Admin User",
         )
         self.rule_form_name = ""
         self.rule_form_action = ""
@@ -522,7 +554,10 @@ class AlertState(rx.State):
             self.rules.remove(rule)
             self.rules = list(self.rules)
             self.log_system_event(
-                "Rule Deleted", f"Deleted rule: {rule.name}", "warning"
+                "Rule Deleted",
+                f"Deleted rule: {rule.name}",
+                "warning",
+                user="Admin User",
             )
         return rx.toast.success("Rule deleted.")
 
@@ -532,7 +567,12 @@ class AlertState(rx.State):
         if rule:
             rule.is_active = not rule.is_active
             status = "activated" if rule.is_active else "deactivated"
-            self.log_system_event("Rule Updated", f"Rule {rule.name} {status}", "info")
+            self.log_system_event(
+                "Rule Updated",
+                f"Rule '{rule.name}' {status}",
+                "info",
+                user="Admin User",
+            )
             self.rules = list(self.rules)
 
     history_importance_filter: str = "All"
@@ -614,6 +654,7 @@ class AlertState(rx.State):
                     "System Ready",
                     "Dashboard application loaded successfully",
                     "success",
+                    user="System",
                 )
             self._initialize_db()
             self._refresh_history()

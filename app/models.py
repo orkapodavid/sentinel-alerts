@@ -56,3 +56,4 @@ class LogEntry(rx.Base):
     level: str
     ticker: Optional[str] = None
     importance: Optional[str] = None
+    user: str = "Admin User"
