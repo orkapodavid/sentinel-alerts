@@ -18,4 +18,3 @@ class UIState(rx.State):
     @rx.event
     def toggle_dark_mode(self, value: bool):
         self.dark_mode = value
-        return rx.toggle_color_mode
