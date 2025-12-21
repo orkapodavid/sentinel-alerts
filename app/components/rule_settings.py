@@ -3,10 +3,123 @@ from app.states.alert_state import AlertState
 from app.models import AlertRule
 
 
+def clone_rule_modal() -> rx.Component:
+    """Modal to clone settings from an existing rule."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Clone Existing Rule"),
+            rx.dialog.description(
+                "Search and select a rule to copy its settings.", class_name="mb-4"
+            ),
+            rx.el.div(
+                rx.el.input(
+                    placeholder="Search rules by name...",
+                    on_change=AlertState.set_clone_search_query,
+                    class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm mb-4",
+                ),
+                rx.el.div(
+                    rx.cond(
+                        AlertState.clone_paginated_rules.length() > 0,
+                        rx.foreach(
+                            AlertState.clone_paginated_rules,
+                            lambda r: rx.el.div(
+                                rx.el.div(
+                                    rx.el.p(
+                                        r.name, class_name="font-medium text-gray-900"
+                                    ),
+                                    rx.el.p(
+                                        f"{r.category} • {r.importance}",
+                                        class_name="text-xs text-gray-500",
+                                    ),
+                                    class_name="flex flex-col",
+                                ),
+                                rx.el.button(
+                                    "Select",
+                                    on_click=AlertState.select_clone_rule(r.id),
+                                    class_name="px-3 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100",
+                                ),
+                                class_name="flex justify-between items-center p-3 border rounded-lg hover:border-indigo-300 transition-colors",
+                            ),
+                        ),
+                        rx.el.p(
+                            "No matching rules found.",
+                            class_name="text-sm text-gray-500 italic text-center p-4",
+                        ),
+                    ),
+                    class_name="space-y-2 max-h-[300px] overflow-y-auto mb-4 pr-1",
+                ),
+                rx.cond(
+                    AlertState.clone_total_pages > 1,
+                    rx.el.div(
+                        rx.el.button(
+                            rx.icon("chevron-left", class_name="w-4 h-4"),
+                            on_click=AlertState.prev_clone_page,
+                            disabled=AlertState.clone_page == 1,
+                            class_name="p-1 rounded hover:bg-gray-100 disabled:opacity-50",
+                        ),
+                        rx.el.span(
+                            f"Page {AlertState.clone_page} of {AlertState.clone_total_pages}",
+                            class_name="text-xs text-gray-500 font-medium",
+                        ),
+                        rx.el.button(
+                            rx.icon("chevron-right", class_name="w-4 h-4"),
+                            on_click=AlertState.next_clone_page,
+                            disabled=AlertState.clone_page
+                            == AlertState.clone_total_pages,
+                            class_name="p-1 rounded hover:bg-gray-100 disabled:opacity-50",
+                        ),
+                        class_name="flex justify-between items-center bg-gray-50 p-2 rounded-lg",
+                    ),
+                ),
+            ),
+            rx.el.div(
+                rx.dialog.close(
+                    rx.el.button(
+                        "Cancel",
+                        on_click=AlertState.close_clone_modal,
+                        class_name="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50",
+                    )
+                ),
+                class_name="flex justify-end mt-4",
+            ),
+            class_name="max-w-md bg-white p-6 rounded-xl shadow-xl",
+        ),
+        open=AlertState.clone_modal_open,
+    )
+
+
+def action_target_item(target: str, index: int) -> rx.Component:
+    return rx.el.div(
+        rx.el.input(
+            on_change=lambda v: AlertState.update_action_target(index, v),
+            class_name="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
+            placeholder="email@example.com",
+            default_value=target,
+        ),
+        rx.el.button(
+            rx.icon("trash-2", class_name="w-4 h-4 text-gray-500 hover:text-red-500"),
+            on_click=AlertState.remove_action_target(index),
+            class_name="p-2 hover:bg-gray-100 rounded-lg transition-colors",
+            type="button",
+        ),
+        class_name="flex gap-2",
+    )
+
+
 def rule_form() -> rx.Component:
     """Form to create a new alert rule."""
     return rx.el.div(
-        rx.el.h3("Create New Rule", class_name="text-lg font-bold text-gray-900 mb-6"),
+        clone_rule_modal(),
+        rx.el.div(
+            rx.el.h3("Create New Rule", class_name="text-lg font-bold text-gray-900"),
+            rx.el.button(
+                rx.icon("copy", class_name="w-4 h-4 mr-2"),
+                "Clone Existing",
+                on_click=AlertState.open_clone_modal,
+                class_name="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50",
+            ),
+            class_name="flex justify-between items-center mb-6",
+        ),
         rx.el.div(
             rx.el.div(
                 rx.el.div(
@@ -102,14 +215,20 @@ def rule_form() -> rx.Component:
             rx.el.div(
                 rx.el.div(
                     rx.el.label(
-                        "Action Target",
+                        "Action Targets (Emails)",
                         class_name="block text-sm font-medium text-gray-700 mb-1",
                     ),
-                    rx.el.input(
-                        on_change=AlertState.set_rule_form_action,
-                        class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
-                        placeholder="e.g. email@admin.com",
-                        default_value=AlertState.rule_form_action,
+                    rx.el.div(
+                        rx.foreach(
+                            AlertState.rule_form_action_targets, action_target_item
+                        ),
+                        class_name="space-y-2 mb-2",
+                    ),
+                    rx.el.button(
+                        "+ Add Email",
+                        on_click=AlertState.add_action_target,
+                        class_name="text-sm text-indigo-600 hover:text-indigo-800 font-medium",
+                        type="button",
                     ),
                     class_name="col-span-2",
                 ),

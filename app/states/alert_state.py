@@ -40,13 +40,122 @@ class AlertState(rx.State):
     rule_form_name: str = ""
     rule_form_importance: str = "medium"
     rule_form_category: str = "General"
-    rule_form_action: str = ""
     rule_form_period_value: int = 60
     rule_form_period_unit: str = "Minutes"
     rule_form_duration_value: int = 24
     rule_form_duration_unit: str = "Hours"
     rule_form_trigger_script: str = "custom"
     rule_form_parameters: str = "{}"
+    rule_form_action_targets: list[str] = [""]
+
+    @rx.event
+    def add_action_target(self):
+        self.rule_form_action_targets.append("")
+
+    @rx.event
+    def remove_action_target(self, index: int):
+        if 0 <= index < len(self.rule_form_action_targets):
+            self.rule_form_action_targets.pop(index)
+
+    @rx.event
+    def update_action_target(self, index: int, value: str):
+        if 0 <= index < len(self.rule_form_action_targets):
+            self.rule_form_action_targets[index] = value
+
+    clone_modal_open: bool = False
+    clone_search_query: str = ""
+    clone_page: int = 1
+    clone_page_size: int = 10
+
+    @rx.event
+    def open_clone_modal(self):
+        self.clone_modal_open = True
+        self.clone_search_query = ""
+        self.clone_page = 1
+
+    @rx.event
+    def close_clone_modal(self):
+        self.clone_modal_open = False
+
+    @rx.event
+    def set_clone_search_query(self, value: str):
+        self.clone_search_query = value
+        self.clone_page = 1
+
+    @rx.var
+    def clone_filtered_rules(self) -> list[AlertRule]:
+        if not self.clone_search_query:
+            return self.rules
+        q = self.clone_search_query.lower()
+        return [r for r in self.rules if q in r.name.lower()]
+
+    @rx.var
+    def clone_total_pages(self) -> int:
+        return (
+            math.ceil(len(self.clone_filtered_rules) / self.clone_page_size)
+            if self.clone_page_size > 0
+            else 1
+        )
+
+    @rx.var
+    def clone_paginated_rules(self) -> list[AlertRule]:
+        start = (self.clone_page - 1) * self.clone_page_size
+        end = start + self.clone_page_size
+        return self.clone_filtered_rules[start:end]
+
+    @rx.event
+    def next_clone_page(self):
+        if self.clone_page < self.clone_total_pages:
+            self.clone_page += 1
+
+    @rx.event
+    def prev_clone_page(self):
+        if self.clone_page > 1:
+            self.clone_page -= 1
+
+    @rx.event
+    def select_clone_rule(self, rule_id: int):
+        rule = self._get_rule_by_id(rule_id)
+        if not rule:
+            return
+        self.rule_form_name = f"Copy of {rule.name}"
+        self.rule_form_importance = rule.importance
+        self.rule_form_category = rule.category
+        self.rule_form_trigger_script = rule.trigger_script
+        self.rule_form_parameters = rule.parameters
+        if rule.period_seconds % 86400 == 0:
+            self.rule_form_period_value = rule.period_seconds // 86400
+            self.rule_form_period_unit = "Days"
+        elif rule.period_seconds % 3600 == 0:
+            self.rule_form_period_value = rule.period_seconds // 3600
+            self.rule_form_period_unit = "Hours"
+        else:
+            self.rule_form_period_value = rule.period_seconds // 60
+            self.rule_form_period_unit = "Minutes"
+        if rule.display_duration_minutes % 1440 == 0:
+            self.rule_form_duration_value = rule.display_duration_minutes // 1440
+            self.rule_form_duration_unit = "Days"
+        elif rule.display_duration_minutes % 60 == 0:
+            self.rule_form_duration_value = rule.display_duration_minutes // 60
+            self.rule_form_duration_unit = "Hours"
+        else:
+            self.rule_form_duration_value = rule.display_duration_minutes
+            self.rule_form_duration_unit = "Minutes"
+        try:
+            config = json.loads(rule.action_config)
+            if "emails" in config and isinstance(config["emails"], list):
+                self.rule_form_action_targets = config["emails"]
+            elif "action" in config and config["action"]:
+                self.rule_form_action_targets = [config["action"]]
+            else:
+                self.rule_form_action_targets = [""]
+        except Exception as e:
+            logging.exception(f"Error parsing action config for rule cloning: {e}")
+            self.rule_form_action_targets = [""]
+        if not self.rule_form_action_targets:
+            self.rule_form_action_targets = [""]
+        self.clone_modal_open = False
+        rx.toast.success("Rule settings cloned.")
 
     @rx.event
     def fetch_available_triggers(self):
@@ -340,7 +449,7 @@ class AlertState(rx.State):
                     category="System",
                     period_seconds=300,
                     display_duration_minutes=1440,
-                    action_config=json.dumps({"email": "ops@sentinel.io"}),
+                    action_config=json.dumps({"emails": ["ops@sentinel.io"]}),
                     comment="Critical server monitoring",
                     is_active=True,
                 ),
@@ -352,7 +461,7 @@ class AlertState(rx.State):
                     category="Market",
                     period_seconds=60,
                     display_duration_minutes=60,
-                    action_config=json.dumps({"slack": "#trading"}),
+                    action_config=json.dumps({"emails": ["trading@sentinel.io"]}),
                     comment="Day trading alert",
                     is_active=True,
                 ),
@@ -364,7 +473,7 @@ class AlertState(rx.State):
                     category="Market",
                     period_seconds=300,
                     display_duration_minutes=120,
-                    action_config=json.dumps({"log": "true"}),
+                    action_config=json.dumps({"emails": []}),
                     comment="Volume tracking",
                     is_active=True,
                 ),
@@ -513,11 +622,8 @@ class AlertState(rx.State):
             self.rule_form_duration_unit, 60
         )
         display_duration_minutes = self.rule_form_duration_value * duration_mult
-        action_config = (
-            json.dumps({"action": self.rule_form_action})
-            if self.rule_form_action
-            else "{}"
-        )
+        valid_targets = [t for t in self.rule_form_action_targets if t.strip()]
+        action_config = json.dumps({"emails": valid_targets})
         new_rule = AlertRule(
             id=self.next_rule_id,
             name=self.rule_form_name,
@@ -541,7 +647,7 @@ class AlertState(rx.State):
             user="Admin User",
         )
         self.rule_form_name = ""
-        self.rule_form_action = ""
+        self.rule_form_action_targets = [""]
         self.rule_form_category = "General"
         self.rule_form_trigger_script = "custom"
         self.rule_form_parameters = "{}"
