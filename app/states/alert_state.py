@@ -8,8 +8,6 @@ from datetime import datetime, timedelta
 from app.models import AlertRule, AlertEvent, LogEntry
 from app.alert_runner import AlertRunner
 
-DEFAULT_TEMPLATES = {"Custom": "{}"}
-
 
 class AlertState(rx.State):
     """State management for Alerts and Rules."""
@@ -48,61 +46,10 @@ class AlertState(rx.State):
     rule_form_duration_unit: str = "Hours"
     rule_form_trigger_script: str = "custom"
     rule_form_parameters: str = "{}"
-    predefined_templates: dict[str, str] = DEFAULT_TEMPLATES.copy()
-    new_template_name: str = ""
-    new_template_json: str = ""
 
     @rx.event
     def fetch_available_triggers(self):
         self.available_triggers = AlertRunner.discover_triggers()
-
-    @rx.var
-    def predefined_rule_options(self) -> list[str]:
-        return list(self.predefined_templates.keys())
-
-    @rx.var
-    def template_list(self) -> list[dict]:
-        return [
-            {"name": k, "json": v}
-            for k, v in self.predefined_templates.items()
-            if k != "Custom"
-        ]
-
-    @rx.event
-    def set_new_template_name(self, value: str):
-        self.new_template_name = value
-
-    @rx.event
-    def set_new_template_json(self, value: str):
-        self.new_template_json = value
-
-    @rx.event
-    def add_template(self):
-        if not self.new_template_name or not self.new_template_json:
-            return rx.toast.error("Name and JSON are required.")
-        try:
-            json.loads(self.new_template_json)
-        except json.JSONDecodeError as e:
-            logging.exception(f"Invalid JSON format in template: {e}")
-            return rx.toast.error("Invalid JSON format.")
-        self.predefined_templates[self.new_template_name] = self.new_template_json
-        self.predefined_templates = self.predefined_templates.copy()
-        self.log_system_event(
-            "Template Added", f"Added template: {self.new_template_name}", "info"
-        )
-        self.new_template_name = ""
-        self.new_template_json = ""
-        return rx.toast.success("Template added.")
-
-    @rx.event
-    def remove_template(self, name: str):
-        if name in self.predefined_templates:
-            del self.predefined_templates[name]
-            self.predefined_templates = self.predefined_templates.copy()
-            self.log_system_event(
-                "Template Removed", f"Removed template: {name}", "warning"
-            )
-            return rx.toast.success("Template removed.")
 
     system_logs: list[LogEntry] = []
 
