@@ -55,12 +55,21 @@ class AlertState(rx.State):
     system_logs: list[LogEntry] = []
 
     @rx.event
-    def log_system_event(self, event_type: str, message: str, level: str = "info"):
+    def log_system_event(
+        self,
+        event_type: str,
+        message: str,
+        level: str = "info",
+        ticker: str | None = None,
+        importance: str | None = None,
+    ):
         new_log = LogEntry(
             timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             type=event_type,
             message=message,
             level=level,
+            ticker=ticker,
+            importance=importance,
         )
         self.system_logs.insert(0, new_log)
         if len(self.system_logs) > 100:
@@ -140,21 +149,24 @@ class AlertState(rx.State):
             action_label = "View Details"
         else:
             action_label = "" if event.is_acknowledged else "ACKNOWLEDGE"
-        ticker = "-"
-        rule = self._get_rule_by_id(event.rule_id)
-        if rule:
-            try:
-                params = json.loads(rule.parameters)
-                ticker = (
-                    params.get("ticker")
-                    or params.get("server")
-                    or params.get("service")
-                    or "-"
-                )
-            except Exception as e:
-                logging.exception(
-                    f"Error parsing rule parameters for ticker extraction: {e}"
-                )
+        ticker = event.ticker
+        if not ticker or ticker == "-":
+            rule = self._get_rule_by_id(event.rule_id)
+            if rule:
+                try:
+                    params = json.loads(rule.parameters)
+                    ticker = (
+                        params.get("ticker")
+                        or params.get("server")
+                        or params.get("service")
+                        or "-"
+                    )
+                except Exception as e:
+                    logging.exception(
+                        f"Error parsing rule parameters for ticker extraction: {e}"
+                    )
+        if not ticker:
+            ticker = "-"
         return {
             "id": event.id,
             "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -310,7 +322,11 @@ class AlertState(rx.State):
                 event.comment = self.acknowledgement_comment
                 self.events = list(self.events)
                 self.log_system_event(
-                    "Event Acknowledged", f"Acknowledged event {event.id}", "success"
+                    "Event Acknowledged",
+                    f"Acknowledged event {event.id}: {event.message}",
+                    "success",
+                    ticker=event.ticker,
+                    importance=event.importance,
                 )
             self.selected_event_id = -1
             self._refresh_history()
@@ -395,6 +411,7 @@ class AlertState(rx.State):
                     category=random.choice(categories),
                     is_acknowledged=random.choice([True, False]),
                     comment="Auto-generated history" if random.random() > 0.5 else None,
+                    ticker=ticker,
                 )
                 if evt.is_acknowledged:
                     evt.acknowledged_timestamp = evt.timestamp + timedelta(
@@ -425,6 +442,7 @@ class AlertState(rx.State):
                                 timestamp=datetime.utcnow(),
                                 is_acknowledged=False,
                                 category=rule.category,
+                                ticker=output.ticker,
                             )
                             self.next_event_id += 1
                             self.events.append(event)

@@ -33,6 +33,7 @@ class AlertEvent(rx.Base):
     acknowledged_timestamp: Optional[datetime] = None
     action_taken: Optional[str] = None
     comment: Optional[str] = None
+    ticker: Optional[str] = None
 
 
 class AlertOutput(rx.Base):
@@ -53,3 +54,5 @@ class LogEntry(rx.Base):
     type: str
     message: str
     level: str
+    ticker: Optional[str] = None
+    importance: Optional[str] = None

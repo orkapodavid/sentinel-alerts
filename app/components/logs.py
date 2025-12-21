@@ -18,10 +18,28 @@ def log_row(log: LogEntry) -> rx.Component:
                 "text-xs font-bold text-blue-600 w-20 shrink-0",
             ),
         ),
-        rx.el.span(
-            log.type, class_name="text-xs font-medium text-gray-900 w-32 shrink-0"
+        rx.el.div(
+            rx.el.span(log.type, class_name="text-xs font-medium text-gray-900 block"),
+            rx.cond(
+                log.ticker,
+                rx.el.span(
+                    log.ticker,
+                    class_name="text-[10px] font-mono text-gray-500 bg-gray-100 px-1 rounded inline-block mt-0.5",
+                ),
+            ),
+            class_name="w-32 shrink-0",
         ),
-        rx.el.span(log.message, class_name="text-sm text-gray-700 font-mono"),
+        rx.el.div(
+            rx.el.span(log.message, class_name="text-sm text-gray-700 font-mono block"),
+            rx.cond(
+                log.importance,
+                rx.el.span(
+                    log.importance,
+                    class_name="text-[10px] font-bold uppercase text-gray-400 mt-1 inline-block",
+                ),
+            ),
+            class_name="flex-1",
+        ),
         class_name="flex items-start gap-4 p-3 border-b border-gray-100 hover:bg-gray-50",
     )
 
