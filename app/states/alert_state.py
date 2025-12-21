@@ -131,6 +131,51 @@ class AlertState(rx.State):
             return f"https://logo.clearbit.com/{domain}"
         return f"https://ui-avatars.com/api/?name={ticker}&background=random&color=fff&size=64&font-size=0.4"
 
+    def _serialize_event_for_grid(
+        self, event: AlertEvent, for_history: bool = False
+    ) -> dict:
+        """Unified serializer for both blotters."""
+        status_text = "Acknowledged" if event.is_acknowledged else "Pending"
+        if for_history:
+            action_label = "View Details"
+        else:
+            action_label = "" if event.is_acknowledged else "ACKNOWLEDGE"
+        ticker = "-"
+        rule = self._get_rule_by_id(event.rule_id)
+        if rule:
+            try:
+                params = json.loads(rule.parameters)
+                ticker = (
+                    params.get("ticker")
+                    or params.get("server")
+                    or params.get("service")
+                    or "-"
+                )
+            except Exception as e:
+                logging.exception(
+                    f"Error parsing rule parameters for ticker extraction: {e}"
+                )
+        return {
+            "id": event.id,
+            "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            if event.timestamp
+            else "",
+            "importance": event.importance.upper(),
+            "category": event.category,
+            "message": event.message,
+            "status": status_text,
+            "is_acknowledged": event.is_acknowledged,
+            "acknowledged_timestamp": event.acknowledged_timestamp.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            if event.acknowledged_timestamp
+            else "",
+            "ack_comment": event.comment or "",
+            "action_label": action_label,
+            "ticker": ticker,
+            "logo_url": self._get_logo_url(ticker),
+        }
+
     @rx.var
     def all_live_events(self) -> list[dict]:
         """
@@ -176,44 +221,12 @@ class AlertState(rx.State):
             elif self.quick_filter == "System":
                 if event.category != "System":
                     continue
-            status_text = "Acknowledged" if event.is_acknowledged else "Pending"
-            action_label = "✅" if event.is_acknowledged else "ACKNOWLEDGE"
-            ticker = "-"
-            rule = self._get_rule_by_id(event.rule_id)
-            if rule:
-                try:
-                    params = json.loads(rule.parameters)
-                    ticker = (
-                        params.get("ticker")
-                        or params.get("server")
-                        or params.get("service")
-                        or "-"
-                    )
-                except Exception as e:
-                    logging.exception(
-                        f"Error parsing parameters for rule {rule.id}: {e}"
-                    )
-            data.append(
-                {
-                    "id": event.id,
-                    "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-                    if event.timestamp
-                    else "",
-                    "importance": event.importance.upper(),
-                    "category": event.category,
-                    "message": event.message,
-                    "status": status_text,
-                    "is_acknowledged": event.is_acknowledged,
-                    "action_label": action_label,
-                    "ticker": ticker,
-                    "logo_url": self._get_logo_url(ticker),
-                }
-            )
+            data.append(self._serialize_event_for_grid(event, for_history=False))
         return data
 
     @rx.event
     def handle_live_grid_cell_clicked(self, cell_event: dict):
-        """Handle clicks on the AG Grid cells."""
+        """Handle clicks on the AG Grid cells in Live Blotter."""
         col_id = cell_event.get("colDef", {}).get("field")
         row_data = cell_event.get("data", {})
         if col_id == "action_label":
@@ -221,6 +234,15 @@ class AlertState(rx.State):
                 event_id = row_data.get("id")
                 if event_id:
                     self.open_acknowledge_modal(event_id)
+
+    @rx.event
+    def handle_history_grid_cell_clicked(self, cell_event: dict):
+        """Handle clicks on the AG Grid cells in History Blotter."""
+        col_id = cell_event.get("colDef", {}).get("field")
+        row_data = cell_event.get("data", {})
+        if col_id == "action_label":
+            msg = row_data.get("message", "Event")
+            rx.toast.info(f"Details for: {msg}")
 
     @rx.var
     def live_events_count(self) -> int:
@@ -338,6 +360,48 @@ class AlertState(rx.State):
                 r = AlertRule(id=self.next_rule_id, **r_data)
                 self.next_rule_id += 1
                 self.rules.append(r)
+            categories = ["Market", "System", "Security", "Liquidity", "News"]
+            importances = ["critical", "high", "medium", "low"]
+            tickers = [
+                "AAPL",
+                "NVDA",
+                "MSFT",
+                "TSLA",
+                "GOOGL",
+                "SYS-01",
+                "API-GW",
+                "DB-PROD",
+            ]
+            messages = [
+                "High latency detected",
+                "Unusual volume spike",
+                "Price threshold breached",
+                "Connection timeout",
+                "Unauthorized access attempt",
+                "Liquidity crunch warning",
+            ]
+            base_time = datetime.utcnow() - timedelta(days=7)
+            for i in range(50):
+                rule_idx = random.randint(0, len(self.rules) - 1)
+                rule = self.rules[rule_idx]
+                event_time = base_time + timedelta(hours=random.randint(1, 160))
+                ticker = random.choice(tickers)
+                evt = AlertEvent(
+                    id=self.next_event_id,
+                    rule_id=rule.id,
+                    timestamp=event_time,
+                    message=f"{random.choice(messages)} on {ticker}",
+                    importance=random.choice(importances),
+                    category=random.choice(categories),
+                    is_acknowledged=random.choice([True, False]),
+                    comment="Auto-generated history" if random.random() > 0.5 else None,
+                )
+                if evt.is_acknowledged:
+                    evt.acknowledged_timestamp = evt.timestamp + timedelta(
+                        minutes=random.randint(5, 120)
+                    )
+                self.events.append(evt)
+                self.next_event_id += 1
             self._refresh_history()
 
     @rx.event
@@ -467,13 +531,16 @@ class AlertState(rx.State):
 
     history_importance_filter: str = "All"
     history_search_query: str = ""
+    history_start_date: str = ""
+    history_end_date: str = ""
     history_page: int = 1
     history_page_size: int = 10
     paginated_history: list[dict] = []
     filtered_history_count: int = 0
 
-    def _refresh_history(self):
-        """Perform memory search and pagination."""
+    @rx.var
+    def history_grid_data(self) -> list[dict]:
+        """Data source for the History Ag-Grid (Client-side pagination)."""
         filtered = self.events
         if self.history_importance_filter != "All":
             filtered = [
@@ -484,88 +551,50 @@ class AlertState(rx.State):
         if self.history_search_query:
             q = self.history_search_query.lower()
             filtered = [e for e in filtered if q in e.message.lower()]
-        self.filtered_history_count = len(filtered)
+        if self.history_start_date:
+            try:
+                s_date = datetime.strptime(self.history_start_date, "%Y-%m-%d")
+                filtered = [
+                    e for e in filtered if e.timestamp and e.timestamp >= s_date
+                ]
+            except ValueError as e:
+                logging.exception(f"Error parsing history start date: {e}")
+        if self.history_end_date:
+            try:
+                e_date = datetime.strptime(
+                    self.history_end_date, "%Y-%m-%d"
+                ) + timedelta(days=1)
+                filtered = [e for e in filtered if e.timestamp and e.timestamp < e_date]
+            except ValueError as e:
+                logging.exception(f"Error parsing history end date: {e}")
         filtered.sort(
             key=lambda x: x.timestamp if x.timestamp else datetime.min, reverse=True
         )
-        start = (self.history_page - 1) * self.history_page_size
-        end = start + self.history_page_size
-        page_items = filtered[start:end]
-        final_results = []
-        for event in page_items:
-            rule = self._get_rule_by_id(event.rule_id)
-            ticker = "-"
-            if rule:
-                try:
-                    params = json.loads(rule.parameters)
-                    ticker = params.get("ticker", "-")
-                except Exception as e:
-                    logging.exception(
-                        f"Error parsing parameters for rule {rule.id}: {e}"
-                    )
-                    pass
-            final_results.append(
-                {
-                    "id": event.id,
-                    "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-                    if event.timestamp
-                    else "",
-                    "message": event.message,
-                    "importance": event.importance,
-                    "is_acknowledged": event.is_acknowledged,
-                    "acknowledged_timestamp": event.acknowledged_timestamp.strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    )
-                    if event.acknowledged_timestamp
-                    else None,
-                    "ack_comment": event.comment or "",
-                    "ticker": ticker,
-                }
-            )
-        self.paginated_history = final_results
+        return [self._serialize_event_for_grid(e, for_history=True) for e in filtered]
 
-    @rx.var
-    def history_total_pages(self) -> int:
-        return (
-            math.ceil(self.filtered_history_count / self.history_page_size)
-            if self.history_page_size > 0
-            else 1
-        )
-
-    @rx.var
-    def history_start_index(self) -> int:
-        if self.filtered_history_count == 0:
-            return 0
-        return (self.history_page - 1) * self.history_page_size + 1
-
-    @rx.var
-    def history_end_index(self) -> int:
-        end = self.history_page * self.history_page_size
-        return min(end, self.filtered_history_count)
-
-    @rx.event
-    def next_history_page(self):
-        if self.history_page < self.history_total_pages:
-            self.history_page += 1
-            self._refresh_history()
-
-    @rx.event
-    def prev_history_page(self):
-        if self.history_page > 1:
-            self.history_page -= 1
-            self._refresh_history()
+    def _refresh_history(self):
+        """Perform memory search and pagination (Legacy/Back-compat for non-grid usage if any)."""
+        pass
 
     @rx.event
     def set_history_search_query(self, value: str):
         self.history_search_query = value
-        self.history_page = 1
-        self._refresh_history()
 
     @rx.event
     def set_history_importance_filter(self, value: str):
         self.history_importance_filter = value
-        self.history_page = 1
-        self._refresh_history()
+
+    @rx.event
+    def set_history_start_date(self, value: str):
+        self.history_start_date = value
+
+    @rx.event
+    def set_history_end_date(self, value: str):
+        self.history_end_date = value
+
+    @rx.event
+    def export_history_csv(self):
+        rx.toast.success(f"Exporting {len(self.history_grid_data)} events to CSV...")
 
     is_grid_ready: bool = False
 

@@ -1,87 +1,11 @@
 import reflex as rx
+import reflex_enterprise as rxe
 from app.states.alert_state import AlertState
-
-
-def history_row(event: dict) -> rx.Component:
-    """Row for historical blotter table."""
-    return rx.el.tr(
-        rx.el.td(
-            rx.el.div(event["timestamp"], class_name="font-mono text-sm text-gray-900"),
-            class_name="px-6 py-4 whitespace-nowrap",
-        ),
-        rx.el.td(
-            rx.el.span(
-                event["ticker"],
-                class_name="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800",
-            ),
-            class_name="px-6 py-4 whitespace-nowrap",
-        ),
-        rx.el.td(
-            rx.el.div(event["message"], class_name="text-sm text-gray-900"),
-            class_name="px-6 py-4",
-        ),
-        rx.el.td(
-            rx.match(
-                event["importance"].to(str).lower(),
-                (
-                    "critical",
-                    rx.el.span("CRITICAL", class_name="text-xs font-bold text-red-600"),
-                ),
-                (
-                    "high",
-                    rx.el.span("HIGH", class_name="text-xs font-bold text-orange-600"),
-                ),
-                (
-                    "medium",
-                    rx.el.span(
-                        "MEDIUM", class_name="text-xs font-medium text-yellow-600"
-                    ),
-                ),
-                (
-                    "low",
-                    rx.el.span("LOW", class_name="text-xs font-medium text-blue-600"),
-                ),
-                rx.el.span(event["importance"], class_name="text-xs text-gray-500"),
-            ),
-            class_name="px-6 py-4 whitespace-nowrap",
-        ),
-        rx.el.td(
-            rx.cond(
-                event["is_acknowledged"],
-                rx.el.div(
-                    rx.el.div(
-                        rx.icon(
-                            "circle_check_big",
-                            class_name="w-4 h-4 text-green-500 mr-1.5",
-                        ),
-                        rx.el.span(
-                            "Acknowledged",
-                            class_name="text-xs font-medium text-green-700",
-                        ),
-                        class_name="flex items-center mb-1",
-                    ),
-                    rx.cond(
-                        event["ack_comment"],
-                        rx.el.p(
-                            event["ack_comment"],
-                            class_name="text-xs text-gray-500 italic",
-                        ),
-                    ),
-                    class_name="flex flex-col",
-                ),
-                rx.el.span(
-                    "Pending",
-                    class_name="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800",
-                ),
-            ),
-            class_name="px-6 py-4",
-        ),
-        class_name="bg-white border-b border-gray-100 hover:bg-gray-50",
-    )
+from app.components.grid_config import get_history_columns
 
 
 def historical_blotter() -> rx.Component:
-    """Full historical event blotter with filters."""
+    """Full historical event blotter with filters and Ag-Grid."""
     return rx.el.div(
         rx.el.div(
             rx.el.div(
@@ -93,6 +17,20 @@ def historical_blotter() -> rx.Component:
                 class_name="flex flex-col",
             ),
             rx.el.div(
+                rx.el.div(
+                    rx.el.input(
+                        type="date",
+                        class_name="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border",
+                        on_change=AlertState.set_history_start_date,
+                    ),
+                    rx.el.span("to", class_name="text-sm text-gray-500 font-medium"),
+                    rx.el.input(
+                        type="date",
+                        class_name="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border",
+                        on_change=AlertState.set_history_end_date,
+                    ),
+                    class_name="flex items-center gap-2",
+                ),
                 rx.el.select(
                     rx.el.option("All Importances", value="All"),
                     rx.el.option("Critical", value="critical"),
@@ -116,95 +54,36 @@ def historical_blotter() -> rx.Component:
                     ),
                     class_name="relative",
                 ),
-                class_name="flex gap-3",
+                rx.el.button(
+                    rx.icon("download", class_name="w-4 h-4 mr-2"),
+                    "Export",
+                    on_click=AlertState.export_history_csv,
+                    class_name="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500",
+                ),
+                class_name="flex flex-wrap gap-3 items-center",
             ),
-            class_name="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 border-b border-gray-100 gap-4",
+            class_name="flex flex-col xl:flex-row justify-between items-start xl:items-center p-6 border-b border-gray-100 gap-4",
         ),
         rx.el.div(
-            rx.el.table(
-                rx.el.thead(
-                    rx.el.tr(
-                        rx.el.th(
-                            "Time (UTC)",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        rx.el.th(
-                            "Ticker",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        rx.el.th(
-                            "Message",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        rx.el.th(
-                            "Level",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        rx.el.th(
-                            "Status",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                    ),
-                    class_name="bg-gray-50",
-                ),
-                rx.el.tbody(
-                    rx.cond(
-                        AlertState.paginated_history.length() > 0,
-                        rx.foreach(AlertState.paginated_history, history_row),
-                        rx.el.tr(
-                            rx.el.td(
-                                "No events found matching your filters.",
-                                col_span=5,
-                                class_name="px-6 py-12 text-center text-sm text-gray-500 italic",
-                            )
-                        ),
-                    ),
-                    class_name="bg-white divide-y divide-gray-100",
-                ),
-                class_name="min-w-full divide-y divide-gray-200",
-            ),
-            class_name="overflow-x-auto",
-        ),
-        rx.cond(
-            AlertState.filtered_history_count > 0,
-            rx.el.div(
-                rx.el.div(
-                    rx.el.p(
-                        f"Showing {AlertState.history_start_index} to {AlertState.history_end_index} of {AlertState.filtered_history_count} results",
-                        class_name="text-sm text-gray-700",
-                    ),
-                    class_name="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between",
+            rx.cond(
+                AlertState.is_grid_ready,
+                rxe.ag_grid(
+                    id="history_blotter_grid",
+                    column_defs=get_history_columns(),
+                    row_data=AlertState.history_grid_data,
+                    pagination=True,
+                    pagination_page_size=20,
+                    pagination_page_size_selector=[20, 50, 100],
+                    on_cell_clicked=AlertState.handle_history_grid_cell_clicked,
+                    width="100%",
+                    height="600px",
+                    theme="quartz",
                 ),
                 rx.el.div(
-                    rx.el.nav(
-                        rx.el.button(
-                            "Previous",
-                            on_click=AlertState.prev_history_page,
-                            disabled=AlertState.history_page == 1,
-                            class_name=rx.cond(
-                                AlertState.history_page == 1,
-                                "relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed",
-                                "relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50",
-                            ),
-                        ),
-                        rx.el.button(
-                            "Next",
-                            on_click=AlertState.next_history_page,
-                            disabled=AlertState.history_page
-                            == AlertState.history_total_pages,
-                            class_name=rx.cond(
-                                AlertState.history_page
-                                == AlertState.history_total_pages,
-                                "ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-300 bg-gray-50 cursor-not-allowed",
-                                "ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50",
-                            ),
-                        ),
-                        class_name="relative z-0 inline-flex rounded-md shadow-sm",
-                    ),
-                    class_name="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto mt-4 sm:mt-0",
+                    rx.spinner(),
+                    class_name="h-[600px] w-full flex items-center justify-center bg-gray-50",
                 ),
-                class_name="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6",
-            ),
+            )
         ),
         class_name="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden",
     )
