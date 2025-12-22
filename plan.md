@@ -34,22 +34,22 @@
 - [x] Create alert_triggers/ directory with base class and example triggers
 - [x] Implement AlertRunner utility for external Python runtimes
 
-## Phase 7: Prefect Model Integration
-- [ ] Add Prefect-specific fields to AlertRule model (prefect_deployment_id, prefect_flow_name, schedule_cron)
-- [ ] Add Prefect-specific fields to AlertEvent model (prefect_flow_run_id, prefect_state, started_at, completed_at, retry_count)
-- [ ] Create PREFECT_STATES constant with all valid Prefect workflow states
-- [ ] Update _serialize_event_for_grid to include Prefect state info
+## Phase 7: Prefect Model Integration ✅
+- [x] Add Prefect-specific fields to AlertRule model (prefect_deployment_id, prefect_flow_name, schedule_cron)
+- [x] Add Prefect-specific fields to AlertEvent model (prefect_flow_run_id, prefect_state, started_at, completed_at, retry_count)
+- [x] Create PREFECT_STATES constant with all valid Prefect workflow states
+- [x] Update _serialize_event_for_grid to include Prefect state info
 
-## Phase 8: Prefect Sync Service & UI Updates
-- [ ] Create PrefectSyncService class to query Prefect API for flow run status
-- [ ] Add sync_prefect_status event handler to AlertState
-- [ ] Update Live Blotter UI to display Prefect states with color-coded badges
-- [ ] Add Prefect state filter dropdown to both blotters
-- [ ] Create Prefect status indicator in dashboard stats cards
+## Phase 8: Prefect Sync Service & UI Updates ✅
+- [x] Create PrefectSyncService class to query Prefect API for flow run status
+- [x] Add sync_prefect_status event handler to AlertState
+- [x] Update Live Blotter UI to display Prefect states with color-coded badges
+- [x] Add Prefect state filter dropdown to both blotters
+- [x] Create Prefect status indicator in dashboard stats cards
 
-## Phase 9: Prefect Trigger Integration
-- [ ] Create PrefectDeploymentTrigger class in alert_triggers/
-- [ ] Implement Prefect deployment invocation via API
-- [ ] Add Prefect deployment selector to Rule Form
-- [ ] Update generate_mock_alerts to handle Prefect triggers
-- [ ] Add manual "Sync Prefect Status" button to dashboard
+## Phase 9: Prefect Trigger Integration ✅
+- [x] Create PrefectDeploymentTrigger class in alert_triggers/
+- [x] Implement Prefect deployment invocation via API
+- [x] Add Prefect deployment selector to Rule Form
+- [x] Update generate_mock_alerts to handle Prefect triggers
+- [x] Add manual "Sync Prefect Status" button to dashboard
