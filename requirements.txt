@@ -3,3 +3,4 @@ sqlmodel
 PyGithub
 reflex-ag-grid
 reflex-enterprise
+prefect
