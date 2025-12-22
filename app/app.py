@@ -16,7 +16,7 @@ def layout(content: rx.Component) -> rx.Component:
         sidebar(),
         rx.el.main(
             content,
-            class_name="pt-20 min-h-screen bg-gray-50 p-4 md:p-8 w-full max-w-7xl mx-auto",
+            class_name="pt-20 min-h-screen bg-gray-50 px-2 md:px-4 py-4 md:py-6 w-full max-w-[1920px] mx-auto",
         ),
         class_name="min-h-screen font-['Inter'] bg-gray-50",
     )

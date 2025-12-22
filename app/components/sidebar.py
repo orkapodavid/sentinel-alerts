@@ -85,7 +85,7 @@ def sidebar() -> rx.Component:
                 ),
                 class_name="flex justify-between h-16",
             ),
-            class_name="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+            class_name="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8",
         ),
         rx.cond(
             UIState.sidebar_open,
