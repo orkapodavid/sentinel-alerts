@@ -11,35 +11,14 @@ from app.states.ui_state import UIState
 
 
 def layout(content: rx.Component) -> rx.Component:
-    """Main layout with responsive sidebar and content area."""
+    """Main layout with fixed top navigation."""
     return rx.el.div(
-        rx.cond(
-            UIState.sidebar_open,
-            rx.el.div(
-                class_name="fixed inset-0 bg-gray-600 bg-opacity-75 z-40 md:hidden transition-opacity",
-                on_click=UIState.close_sidebar,
-            ),
-        ),
         sidebar(),
-        rx.el.div(
-            rx.el.header(
-                rx.el.div(
-                    rx.el.button(
-                        rx.icon("menu", class_name="h-6 w-6 text-gray-600"),
-                        on_click=UIState.toggle_sidebar,
-                        class_name="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500",
-                    ),
-                    rx.el.span(
-                        "Sentinel", class_name="ml-3 text-lg font-bold text-gray-900"
-                    ),
-                    class_name="flex items-center",
-                ),
-                class_name="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200 sticky top-0 z-30",
-            ),
-            rx.el.main(content, class_name="flex-1 bg-gray-50 p-4 md:p-8 min-h-screen"),
-            class_name="flex flex-col flex-1 md:ml-64 min-h-screen transition-all duration-300",
+        rx.el.main(
+            content,
+            class_name="pt-20 min-h-screen bg-gray-50 p-4 md:p-8 w-full max-w-7xl mx-auto",
         ),
-        class_name="flex min-h-screen font-['Inter'] bg-gray-50",
+        class_name="min-h-screen font-['Inter'] bg-gray-50",
     )
 
 
