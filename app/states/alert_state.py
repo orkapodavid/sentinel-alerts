@@ -611,6 +611,23 @@ class AlertState(rx.State):
                     comment="Volume tracking",
                     is_active=True,
                 ),
+                dict(
+                    name="Daily Data Pipeline",
+                    trigger_script="prefect_deployment_trigger",
+                    parameters=json.dumps(
+                        {
+                            "deployment_id": "dep-analytics-01",
+                            "flow_name": "etl-daily-batch",
+                        }
+                    ),
+                    importance="medium",
+                    category="System",
+                    period_seconds=86400,
+                    display_duration_minutes=1440,
+                    action_config=json.dumps({"emails": ["data-eng@sentinel.io"]}),
+                    comment="Triggers daily ETL",
+                    is_active=True,
+                ),
             ]
             for r_data in rules_data:
                 r = AlertRule(id=self.next_rule_id, **r_data)
@@ -692,6 +709,8 @@ class AlertState(rx.State):
                     if output:
                         rule.last_output = output.json()
                         if output.triggered:
+                            flow_run_id = output.metadata.get("flow_run_id")
+                            prefect_state = output.metadata.get("initial_state")
                             event = AlertEvent(
                                 id=self.next_event_id,
                                 rule_id=rule.id,
@@ -701,6 +720,8 @@ class AlertState(rx.State):
                                 is_acknowledged=False,
                                 category=rule.category,
                                 ticker=output.ticker,
+                                prefect_flow_run_id=flow_run_id,
+                                prefect_state=prefect_state,
                             )
                             self.next_event_id += 1
                             self.events.append(event)
