@@ -52,6 +52,12 @@ def index() -> rx.Component:
                 ),
                 rx.el.div(
                     rx.el.button(
+                        rx.icon("refresh-ccw", class_name="w-4 h-4 mr-2"),
+                        "Sync Prefect",
+                        on_click=AlertState.sync_prefect_status,
+                        class_name="flex items-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm shadow-sm",
+                    ),
+                    rx.el.button(
                         rx.icon("refresh-cw", class_name="w-4 h-4 mr-2"),
                         "Generate Mock Alerts",
                         on_click=AlertState.generate_mock_alerts,
@@ -81,9 +87,56 @@ def index() -> rx.Component:
                     "text-red-600",
                 ),
                 dashboard_stat_card(
-                    "System Status", "Healthy", "activity", "text-indigo-600"
+                    "Prefect Flows",
+                    f"{AlertState.prefect_stats['running']} Running",
+                    "workflow",
+                    "text-indigo-600",
                 ),
                 class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8",
+            ),
+            rx.el.div(
+                rx.el.div(
+                    rx.el.p(
+                        "Prefect Status", class_name="text-sm font-medium text-gray-500"
+                    ),
+                    rx.el.div(
+                        rx.el.div(
+                            rx.el.span(
+                                AlertState.prefect_stats["completed"],
+                                class_name="text-lg font-bold text-gray-900",
+                            ),
+                            rx.el.span(
+                                "Completed", class_name="text-xs text-green-600 ml-1"
+                            ),
+                            class_name="flex items-baseline",
+                        ),
+                        rx.el.div(class_name="w-px h-8 bg-gray-200 mx-4"),
+                        rx.el.div(
+                            rx.el.span(
+                                AlertState.prefect_stats["failed"],
+                                class_name="text-lg font-bold text-gray-900",
+                            ),
+                            rx.el.span(
+                                "Failed", class_name="text-xs text-red-600 ml-1"
+                            ),
+                            class_name="flex items-baseline",
+                        ),
+                        rx.el.div(class_name="w-px h-8 bg-gray-200 mx-4"),
+                        rx.el.div(
+                            rx.el.span(
+                                AlertState.prefect_stats["running"],
+                                class_name="text-lg font-bold text-gray-900",
+                            ),
+                            rx.el.span(
+                                "Running", class_name="text-xs text-blue-600 ml-1"
+                            ),
+                            class_name="flex items-baseline",
+                        ),
+                        class_name="flex items-center mt-2",
+                    ),
+                    class_name="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm",
+                ),
+                class_name="grid grid-cols-1 mb-8",
             ),
             live_blotter(),
         )

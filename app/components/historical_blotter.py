@@ -41,6 +41,16 @@ def historical_blotter() -> rx.Component:
                     on_change=AlertState.set_history_importance_filter,
                     class_name="block w-40 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border",
                 ),
+                rx.el.select(
+                    rx.el.option("Prefect: All", value="All"),
+                    rx.el.option("None", value="None"),
+                    rx.el.option("Running", value="RUNNING"),
+                    rx.el.option("Failed", value="FAILED"),
+                    rx.el.option("Completed", value="COMPLETED"),
+                    value=AlertState.prefect_state_filter,
+                    on_change=AlertState.set_prefect_state_filter,
+                    class_name="block w-40 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border",
+                ),
                 rx.el.div(
                     rx.icon(
                         "search",

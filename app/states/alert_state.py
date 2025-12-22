@@ -4,9 +4,11 @@ import random
 import logging
 import math
 import asyncio
+import uuid
 from datetime import datetime, timedelta
-from app.models import AlertRule, AlertEvent, LogEntry
+from app.models import AlertRule, AlertEvent, LogEntry, PREFECT_STATES
 from app.alert_runner import AlertRunner
+from app.services.prefect_service import PrefectSyncService
 
 
 class AlertState(rx.State):
@@ -33,6 +35,16 @@ class AlertState(rx.State):
     @rx.var
     def unacknowledged_events(self) -> int:
         return len([e for e in self.events if not e.is_acknowledged])
+
+    @rx.var
+    def prefect_stats(self) -> dict[str, int]:
+        """Calculate stats for Prefect flows linked to events."""
+        running = len([e for e in self.events if e.prefect_state == "RUNNING"])
+        failed = len(
+            [e for e in self.events if e.prefect_state in ["FAILED", "CRASHED"]]
+        )
+        completed = len([e for e in self.events if e.prefect_state == "COMPLETED"])
+        return {"running": running, "failed": failed, "completed": completed}
 
     current_time: datetime = datetime.utcnow()
     selected_event_id: int = -1
@@ -332,11 +344,18 @@ class AlertState(rx.State):
             self.live_page -= 1
 
     quick_filter: str = "All"
+    prefect_state_filter: str = "All"
 
     @rx.event
     def set_quick_filter(self, value: str):
         self.quick_filter = value
         self.live_page = 1
+
+    @rx.event
+    def set_prefect_state_filter(self, value: str):
+        self.prefect_state_filter = value
+        self.live_page = 1
+        self.history_page = 1
 
     def _get_logo_url(self, ticker: str) -> str:
         """Generate a logo URL for a given ticker or name."""
@@ -436,6 +455,13 @@ class AlertState(rx.State):
                     continue
             elif self.quick_filter == "System":
                 if event.category != "System":
+                    continue
+            if self.prefect_state_filter != "All":
+                evt_state = event.prefect_state or "None"
+                if self.prefect_state_filter == "None":
+                    if evt_state != "None":
+                        continue
+                elif evt_state != self.prefect_state_filter:
                     continue
             data.append(self._serialize_event_for_grid(event, for_history=False))
         return data
@@ -630,6 +656,11 @@ class AlertState(rx.State):
                 if evt.is_acknowledged:
                     evt.acknowledged_timestamp = evt.timestamp + timedelta(
                         minutes=random.randint(5, 120)
+                    )
+                if random.random() < 0.3:
+                    evt.prefect_flow_run_id = str(uuid.uuid4())
+                    evt.prefect_state = random.choice(
+                        ["SCHEDULED", "PENDING", "RUNNING"]
                     )
                 self.events.append(evt)
                 self.next_event_id += 1
@@ -845,6 +876,12 @@ class AlertState(rx.State):
                 for e in filtered
                 if e.importance == self.history_importance_filter.lower()
             ]
+        if self.prefect_state_filter != "All":
+            target = self.prefect_state_filter
+            if target == "None":
+                filtered = [e for e in filtered if not e.prefect_state]
+            else:
+                filtered = [e for e in filtered if e.prefect_state == target]
         if self.history_search_query:
             q = self.history_search_query.lower()
             filtered = [e for e in filtered if q in e.message.lower()]
@@ -892,6 +929,43 @@ class AlertState(rx.State):
     @rx.event
     def export_history_csv(self):
         rx.toast.success(f"Exporting {len(self.history_grid_data)} events to CSV...")
+
+    @rx.event(background=True)
+    async def sync_prefect_status(self):
+        """Sync Prefect flow run states."""
+        async with self:
+            self.log_system_event(
+                "Prefect Sync", "Starting Prefect status sync...", "info"
+            )
+        ids_to_sync = [
+            e.prefect_flow_run_id for e in self.events if e.prefect_flow_run_id
+        ]
+        if not ids_to_sync:
+            async with self:
+                rx.toast.info("No Prefect flow runs linked to events.")
+                return
+        try:
+            new_states = await PrefectSyncService.get_batch_flow_run_states(ids_to_sync)
+            async with self:
+                updates = 0
+                for event in self.events:
+                    if event.prefect_flow_run_id in new_states:
+                        old = event.prefect_state
+                        new = new_states[event.prefect_flow_run_id]
+                        if old != new:
+                            event.prefect_state = new
+                            updates += 1
+                self.events = list(self.events)
+                self.log_system_event(
+                    "Prefect Sync",
+                    f"Synced {len(ids_to_sync)} flows. {updates} updates.",
+                    "success",
+                )
+                rx.toast.success(f"Prefect status synced: {updates} updates.")
+        except Exception as e:
+            async with self:
+                logging.exception(f"Prefect sync failed: {e}")
+                rx.toast.error("Failed to sync with Prefect API.")
 
     is_grid_ready: bool = False
 
