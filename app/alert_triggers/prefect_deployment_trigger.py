@@ -1,5 +1,4 @@
 import uuid
-import random
 from datetime import datetime
 from app.alert_triggers import BaseTrigger
 from app.models import AlertOutput

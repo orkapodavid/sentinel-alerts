@@ -1,6 +1,5 @@
 import logging
 import uuid
-import asyncio
 import os
 
 try:
