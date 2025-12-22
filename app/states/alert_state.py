@@ -5,6 +5,7 @@ import logging
 import math
 import asyncio
 import uuid
+import os
 from datetime import datetime, timedelta
 from app.models import AlertRule, AlertEvent, LogEntry, PREFECT_STATES
 from app.alert_runner import AlertRunner
@@ -175,15 +176,31 @@ class AlertState(rx.State):
 
     prefect_deployments: list[dict] = []
     prefect_connection_status: bool = False
+    prefect_api_url: str = "http://localhost:4200/api"
+    prefect_ui_url: str = "http://localhost:4200"
+    prefect_status_message: str = "Not checked"
+
+    @rx.event
+    def set_prefect_api_url(self, value: str):
+        self.prefect_api_url = value
+        os.environ["PREFECT_API_URL"] = value
+
+    @rx.event
+    def set_prefect_ui_url(self, value: str):
+        self.prefect_ui_url = value
 
     @rx.event
     async def test_prefect_connection(self):
         """Test connectivity to Prefect API."""
-        self.prefect_connection_status = await PrefectSyncService.check_connection()
+        os.environ["PREFECT_API_URL"] = self.prefect_api_url
+        result = await PrefectSyncService.check_connection(self.prefect_api_url)
+        self.prefect_connection_status = result["success"]
         if self.prefect_connection_status:
+            self.prefect_status_message = "Connected"
             rx.toast.success("Prefect API Connected Successfully")
         else:
-            rx.toast.error("Failed to connect to Prefect API")
+            self.prefect_status_message = result.get("error", "Connection Failed")
+            rx.toast.error(f"Failed: {self.prefect_status_message}")
 
     @rx.event
     async def fetch_prefect_deployments(self):
@@ -421,7 +438,9 @@ class AlertState(rx.State):
         prefect_link_text = "View Flow" if event.prefect_flow_run_id else ""
         prefect_ui_url = ""
         if event.prefect_flow_run_id:
-            prefect_ui_url = PrefectSyncService.get_ui_url(event.prefect_flow_run_id)
+            prefect_ui_url = PrefectSyncService.get_ui_url(
+                event.prefect_flow_run_id, base_url=self.prefect_ui_url
+            )
         return {
             "id": event.id,
             "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -1061,8 +1080,10 @@ class AlertState(rx.State):
     @rx.event(background=True)
     async def on_load(self):
         """Called when page loads."""
+        os.environ["PREFECT_API_URL"] = self.prefect_api_url
         async with self:
             self.fetch_available_triggers()
+            await self.test_prefect_connection()
             await self.fetch_prefect_deployments()
             if not self.system_logs:
                 self.log_system_event(

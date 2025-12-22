@@ -92,7 +92,17 @@ def index() -> rx.Component:
                     "workflow",
                     "text-indigo-600",
                 ),
-                class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8",
+                dashboard_stat_card(
+                    "Server Status",
+                    rx.cond(AlertState.prefect_connection_status, "Online", "Offline"),
+                    "server",
+                    rx.cond(
+                        AlertState.prefect_connection_status,
+                        "text-green-600",
+                        "text-red-600",
+                    ),
+                ),
+                class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-8",
             ),
             rx.el.div(
                 rx.el.div(

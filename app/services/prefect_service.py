@@ -1,6 +1,7 @@
 import logging
 import uuid
 import asyncio
+import os
 
 try:
     from prefect.client.orchestration import get_client
@@ -13,6 +14,12 @@ from app.models import PREFECT_STATES
 
 class PrefectSyncService:
     """Service to interact with Prefect API."""
+
+    DEFAULT_API_URL = "http://localhost:4200/api"
+
+    @staticmethod
+    def _get_api_url() -> str:
+        return os.environ.get("PREFECT_API_URL", PrefectSyncService.DEFAULT_API_URL)
 
     @staticmethod
     async def get_batch_flow_run_states(flow_run_ids: list[str]) -> dict[str, str]:
@@ -32,7 +39,7 @@ class PrefectSyncService:
         if not valid_uuids:
             return {}
         try:
-            async with get_client() as client:
+            async with get_client(api_url=PrefectSyncService._get_api_url()) as client:
                 runs = await client.read_flow_runs(
                     flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=valid_uuids))
                 )
@@ -47,7 +54,7 @@ class PrefectSyncService:
         if not get_client:
             return []
         try:
-            async with get_client() as client:
+            async with get_client(api_url=PrefectSyncService._get_api_url()) as client:
                 deployments = await client.read_deployments()
                 return [
                     {"id": str(d.id), "name": d.name, "flow_id": str(d.flow_id)}
@@ -66,7 +73,7 @@ class PrefectSyncService:
             logging.warning("Prefect client not available, cannot trigger deployment.")
             return None
         try:
-            async with get_client() as client:
+            async with get_client(api_url=PrefectSyncService._get_api_url()) as client:
                 dep_uuid = uuid.UUID(deployment_id)
                 deployment = await client.read_deployment(dep_uuid)
                 flow_run = await client.create_flow_run_from_deployment(
@@ -78,19 +85,30 @@ class PrefectSyncService:
             return None
 
     @staticmethod
-    async def check_connection() -> bool:
+    async def check_connection(api_url: str = None) -> dict:
         """Check if Prefect API is accessible."""
         if not get_client:
-            return False
+            return {"success": False, "error": "Prefect package not installed"}
+        target_url = (
+            api_url
+            if api_url
+            else os.environ.get("PREFECT_API_URL", PrefectSyncService.DEFAULT_API_URL)
+        )
         try:
-            async with get_client() as client:
+            async with get_client(api_url=target_url) as client:
                 await client.hello()
-                return True
+                return {"success": True, "message": "Connected to Prefect"}
         except Exception as e:
             logging.exception(f"Error checking Prefect connection: {e}")
-            return False
+            msg = str(e)
+            if "Connection refused" in msg or "ConnectError" in msg:
+                return {
+                    "success": False,
+                    "error": f"Connection refused at {target_url}. Is the server running?",
+                }
+            return {"success": False, "error": str(e)}
 
     @staticmethod
-    def get_ui_url(flow_run_id: str) -> str:
+    def get_ui_url(flow_run_id: str, base_url: str = "http://localhost:4200") -> str:
         """Get the UI URL for a flow run."""
-        return f"http://localhost:4200/flow-runs/flow-run/{flow_run_id}"
+        return f"{base_url}/flow-runs/flow-run/{flow_run_id}"
