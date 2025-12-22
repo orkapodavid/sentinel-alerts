@@ -14,7 +14,7 @@ class MemoryLeakTrigger(BaseTrigger):
     def get_default_params(self) -> dict:
         return {"service": "api-gateway", "limit_mb": 512}
 
-    def check(self, params: dict) -> AlertOutput:
+    async def check(self, params: dict) -> AlertOutput:
         service = params.get("service", "unknown")
         limit = float(params.get("limit_mb", 512))
         used = limit * random.uniform(0.6, 1.2)

@@ -6,7 +6,7 @@ class BaseTrigger(abc.ABC):
     """Abstract base class for all alert triggers."""
 
     @abc.abstractmethod
-    def check(self, params: dict) -> AlertOutput:
+    async def check(self, params: dict) -> AlertOutput:
         """Run the check logic and return an AlertOutput."""
         pass
 

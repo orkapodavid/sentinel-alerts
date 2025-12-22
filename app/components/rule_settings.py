@@ -139,6 +139,21 @@ def rule_form() -> rx.Component:
                         on_change=AlertState.set_rule_form_trigger_script,
                         class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
                     ),
+                    rx.cond(
+                        AlertState.rule_form_trigger_script
+                        == "prefect_deployment_trigger",
+                        rx.el.div(
+                            rx.el.select(
+                                rx.el.option("Select Prefect Deployment...", value=""),
+                                rx.foreach(
+                                    AlertState.prefect_deployments,
+                                    lambda d: rx.el.option(d["name"], value=d["id"]),
+                                ),
+                                on_change=AlertState.update_rule_form_prefect_deployment,
+                                class_name="mt-2 w-full px-3 py-2 border border-indigo-200 bg-indigo-50 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
+                            )
+                        ),
+                    ),
                     class_name="col-span-1",
                 ),
                 rx.el.div(

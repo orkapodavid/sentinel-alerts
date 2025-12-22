@@ -14,7 +14,7 @@ class VolumeSpikeTrigger(BaseTrigger):
     def get_default_params(self) -> dict:
         return {"ticker": "NVDA", "avg_volume": 1000000, "threshold_percent": 200}
 
-    def check(self, params: dict) -> AlertOutput:
+    async def check(self, params: dict) -> AlertOutput:
         ticker = params.get("ticker", "UNKNOWN")
         avg_vol = float(params.get("avg_volume", 1000000))
         pct_thresh = float(params.get("threshold_percent", 200))

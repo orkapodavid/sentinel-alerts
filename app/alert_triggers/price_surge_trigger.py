@@ -14,7 +14,7 @@ class PriceSurgeTrigger(BaseTrigger):
     def get_default_params(self) -> dict:
         return {"ticker": "AAPL", "threshold": 150.0}
 
-    def check(self, params: dict) -> AlertOutput:
+    async def check(self, params: dict) -> AlertOutput:
         ticker = params.get("ticker", "UNKNOWN")
         threshold = float(params.get("threshold", 100.0))
         current_price = threshold + random.uniform(-10, 20)

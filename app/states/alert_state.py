@@ -173,6 +173,26 @@ class AlertState(rx.State):
     def fetch_available_triggers(self):
         self.available_triggers = AlertRunner.discover_triggers()
 
+    prefect_deployments: list[dict] = []
+
+    @rx.event
+    async def fetch_prefect_deployments(self):
+        self.prefect_deployments = await PrefectSyncService.get_deployments()
+
+    @rx.event
+    def update_rule_form_prefect_deployment(self, deployment_id: str):
+        """Update deployment ID in parameters JSON when dropdown changes."""
+        try:
+            params = json.loads(self.rule_form_parameters)
+            params["deployment_id"] = deployment_id
+            for d in self.prefect_deployments:
+                if d["id"] == deployment_id:
+                    params["flow_name"] = d["name"]
+                    break
+            self.rule_form_parameters = json.dumps(params, indent=2)
+        except json.JSONDecodeError as e:
+            logging.exception(f"Error updating rule parameters JSON: {e}")
+
     system_logs: list[LogEntry] = []
 
     @rx.event
@@ -697,7 +717,7 @@ class AlertState(rx.State):
             self._refresh_history()
 
     @rx.event
-    def generate_mock_alerts(self):
+    async def generate_mock_alerts(self):
         """Run trigger scripts for active rules."""
         new_events_count = 0
         active_rules = [r for r in self.rules if r.is_active]
@@ -705,7 +725,7 @@ class AlertState(rx.State):
             try:
                 params = json.loads(rule.parameters)
                 if rule.trigger_script and rule.trigger_script != "custom":
-                    output = AlertRunner.run_trigger(rule.trigger_script, params)
+                    output = await AlertRunner.run_trigger(rule.trigger_script, params)
                     if output:
                         rule.last_output = output.json()
                         if output.triggered:
@@ -995,6 +1015,7 @@ class AlertState(rx.State):
         """Called when page loads."""
         async with self:
             self.fetch_available_triggers()
+            await self.fetch_prefect_deployments()
             if not self.system_logs:
                 self.log_system_event(
                     "System Ready",

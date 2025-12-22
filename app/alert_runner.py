@@ -39,7 +39,7 @@ class AlertRunner:
         return triggers
 
     @staticmethod
-    def run_trigger(script_name: str, params: dict) -> AlertOutput | None:
+    async def run_trigger(script_name: str, params: dict) -> AlertOutput | None:
         """Execute a specific trigger script."""
         try:
             module_name = f"app.alert_triggers.{script_name}"
@@ -55,7 +55,7 @@ class AlertRunner:
                     break
             if trigger_class:
                 instance = trigger_class()
-                return instance.check(params)
+                return await instance.check(params)
             else:
                 logging.error(f"No BaseTrigger subclass found in {script_name}")
                 return None

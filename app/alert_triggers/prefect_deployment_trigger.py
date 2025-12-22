@@ -3,6 +3,7 @@ import random
 from datetime import datetime
 from app.alert_triggers import BaseTrigger
 from app.models import AlertOutput
+from app.services.prefect_service import PrefectSyncService
 
 
 class PrefectDeploymentTrigger(BaseTrigger):
@@ -13,18 +14,25 @@ class PrefectDeploymentTrigger(BaseTrigger):
         return "Invokes a Prefect Deployment and monitors its initial state."
 
     def get_default_params(self) -> dict:
-        return {
-            "deployment_id": "dep-12345678",
-            "flow_name": "data-pipeline-daily",
-            "parameters": {},
-        }
+        return {"deployment_id": "", "flow_name": "Prefect Flow", "parameters": {}}
 
-    def check(self, params: dict) -> AlertOutput:
+    async def check(self, params: dict) -> AlertOutput:
         deployment_id = params.get("deployment_id")
         flow_name = params.get("flow_name", "Unknown Flow")
-        success = random.random() > 0.1
-        if success:
-            flow_run_id = str(uuid.uuid4())
+        run_parameters = params.get("parameters", {})
+        if not deployment_id:
+            return AlertOutput(
+                triggered=False,
+                importance="low",
+                ticker="PREFECT",
+                message="Missing deployment_id parameter",
+                metadata={},
+                timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            )
+        flow_run_id = await PrefectSyncService.trigger_deployment(
+            deployment_id, run_parameters
+        )
+        if flow_run_id:
             return AlertOutput(
                 triggered=True,
                 importance="medium",
@@ -40,9 +48,9 @@ class PrefectDeploymentTrigger(BaseTrigger):
         else:
             return AlertOutput(
                 triggered=False,
-                importance="low",
+                importance="high",
                 ticker="PREFECT",
-                message=f"Failed to trigger {flow_name}",
+                message=f"Failed to trigger deployment for {flow_name}",
                 metadata={},
                 timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             )

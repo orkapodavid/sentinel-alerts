@@ -14,7 +14,7 @@ class CpuUsageTrigger(BaseTrigger):
     def get_default_params(self) -> dict:
         return {"server": "PROD-DB-01", "threshold": 90}
 
-    def check(self, params: dict) -> AlertOutput:
+    async def check(self, params: dict) -> AlertOutput:
         server = params.get("server", "localhost")
         threshold = float(params.get("threshold", 90))
         current_load = random.uniform(10, 100)
