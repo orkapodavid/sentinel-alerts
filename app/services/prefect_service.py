@@ -39,7 +39,8 @@ class PrefectSyncService:
         if not valid_uuids:
             return {}
         try:
-            async with get_client(api_url=PrefectSyncService._get_api_url()) as client:
+            os.environ["PREFECT_API_URL"] = PrefectSyncService._get_api_url()
+            async with get_client() as client:
                 runs = await client.read_flow_runs(
                     flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=valid_uuids))
                 )
@@ -54,7 +55,8 @@ class PrefectSyncService:
         if not get_client:
             return []
         try:
-            async with get_client(api_url=PrefectSyncService._get_api_url()) as client:
+            os.environ["PREFECT_API_URL"] = PrefectSyncService._get_api_url()
+            async with get_client() as client:
                 deployments = await client.read_deployments()
                 return [
                     {"id": str(d.id), "name": d.name, "flow_id": str(d.flow_id)}
@@ -73,7 +75,8 @@ class PrefectSyncService:
             logging.warning("Prefect client not available, cannot trigger deployment.")
             return None
         try:
-            async with get_client(api_url=PrefectSyncService._get_api_url()) as client:
+            os.environ["PREFECT_API_URL"] = PrefectSyncService._get_api_url()
+            async with get_client() as client:
                 dep_uuid = uuid.UUID(deployment_id)
                 deployment = await client.read_deployment(dep_uuid)
                 flow_run = await client.create_flow_run_from_deployment(
@@ -95,7 +98,8 @@ class PrefectSyncService:
             else os.environ.get("PREFECT_API_URL", PrefectSyncService.DEFAULT_API_URL)
         )
         try:
-            async with get_client(api_url=target_url) as client:
+            os.environ["PREFECT_API_URL"] = target_url
+            async with get_client() as client:
                 await client.hello()
                 return {"success": True, "message": "Connected to Prefect"}
         except Exception as e:
