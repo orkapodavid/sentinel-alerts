@@ -14,6 +14,7 @@ base_columns = [
         "sortable": True,
         "filter": True,
         "width": 140,
+        "cellClassRules": {"font-bold": "data.importance == 'CRITICAL'"},
     },
     {
         "field": "category",
@@ -50,6 +51,7 @@ base_columns = [
         "filter": True,
         "flex": 1,
         "minWidth": 300,
+        "cellClassRules": {"font-bold": "data.importance == 'CRITICAL'"},
     },
     {
         "field": "status",
@@ -57,6 +59,10 @@ base_columns = [
         "sortable": True,
         "filter": True,
         "width": 130,
+        "cellClassRules": {
+            "critical-pulse": "data.importance == 'CRITICAL' && data.status == 'Pending'",
+            "text-green-600 font-medium": "data.status == 'Acknowledged'",
+        },
     },
 ]
 

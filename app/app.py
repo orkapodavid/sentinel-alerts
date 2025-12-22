@@ -175,13 +175,31 @@ def events_page() -> rx.Component:
     )
 
 
+style_content = """
+.critical-row {
+    background-color: #FEF2F2 !important;
+    border-left: 4px solid #DC2626 !important;
+}
+
+@keyframes pulse-red {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.critical-pulse {
+    animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    color: #DC2626;
+    font-weight: bold;
+}
+"""
 app = rxe.App(
     theme=rx.theme(appearance="light"),
     head_components=[
         rx.el.link(
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
             rel="stylesheet",
-        )
+        ),
+        rx.el.style(style_content),
     ],
 )
 app.add_page(index, route="/", on_load=AlertState.on_load)

@@ -534,7 +534,7 @@ class AlertState(rx.State):
         elif col_id == "prefect_link":
             url = row_data.get("prefect_ui_url")
             if url:
-                return rx.redirect(url, external=True)
+                return rx.redirect(url, is_external=True)
 
     @rx.event
     def handle_history_grid_cell_clicked(self, cell_event: dict):
@@ -547,7 +547,7 @@ class AlertState(rx.State):
         elif col_id == "prefect_link":
             url = row_data.get("prefect_ui_url")
             if url:
-                return rx.redirect(url, external=True)
+                return rx.redirect(url, is_external=True)
 
     @rx.var
     def live_events_count(self) -> int:
