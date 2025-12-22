@@ -1,6 +1,6 @@
-# Events and Alerts Management System
+# Prefect Integration for Events and Alerts Management System
 
-## Phase 1: Database Models & Mock Generator ✅
+## Phase 1: Model Updates & Prefect States ✅
 - [x] Create data models (AlertRule, AlertEvent) with proper relationships
 - [x] Implement JSON-aware mock generator function that parses parameters
 - [x] Set up basic State class with database initialization
@@ -19,27 +19,37 @@
 - [x] Add event filtering by importance and text search
 - [x] Create statistics cards showing event counts and trends
 - [x] Add manual trigger button for mock alert generation
-- [x] Historical Blotter with all columns (Time, Ticker, Message, Importance, Ack Status, Comment)
+- [x] Historical Blotter with all columns
 
 ## Phase 4: Performance Optimization ✅
 - [x] Implement sortable data table in Live Blotter with clickable column headers
-- [x] Add column sorting (click headers to toggle asc/desc)
-- [x] Add pagination to Live Blotter (10 rows per page with Previous/Next)
-- [x] Implement server-side filtering for Historical Blotter with importance filter and text search
-- [x] Add pagination to Historical Blotter with Previous/Next buttons
-- [x] Optimize backend filtering with early returns and limits
+- [x] Add pagination to Live Blotter and Historical Blotter
+- [x] Implement server-side filtering for Historical Blotter
 
 ## Phase 5: Server-Side Search Optimization ✅
-- [x] Refactored _get_filtered_events() to use efficient filtering logic
-- [x] Added history_page_size limit (default 10, configurable up to 100)
-- [x] Implemented offset-based pagination with filtered_history_count
-- [x] Added proper pagination controls (Previous/Next with disabled states)
-- [x] Optimized live_grid_data with proper filtering before sorting
+- [x] Refactored filtering logic with efficient pagination
 
 ## Phase 6: Script-Based Alert Trigger System ✅
 - [x] Define generic AlertOutput JSON schema for standardized alert messages
-- [x] Create alert_triggers/ directory with base class and example trigger scripts
-- [x] Implement script discovery mechanism to find all available triggers
-- [x] Update Rule Form with dropdown populated from discovered trigger scripts
-- [x] Create AlertRunner utility for external Python runtimes to invoke triggers
-- [x] Update AlertState to execute selected trigger scripts and store JSON output
+- [x] Create alert_triggers/ directory with base class and example triggers
+- [x] Implement AlertRunner utility for external Python runtimes
+
+## Phase 7: Prefect Model Integration
+- [ ] Add Prefect-specific fields to AlertRule model (prefect_deployment_id, prefect_flow_name, schedule_cron)
+- [ ] Add Prefect-specific fields to AlertEvent model (prefect_flow_run_id, prefect_state, started_at, completed_at, retry_count)
+- [ ] Create PREFECT_STATES constant with all valid Prefect workflow states
+- [ ] Update _serialize_event_for_grid to include Prefect state info
+
+## Phase 8: Prefect Sync Service & UI Updates
+- [ ] Create PrefectSyncService class to query Prefect API for flow run status
+- [ ] Add sync_prefect_status event handler to AlertState
+- [ ] Update Live Blotter UI to display Prefect states with color-coded badges
+- [ ] Add Prefect state filter dropdown to both blotters
+- [ ] Create Prefect status indicator in dashboard stats cards
+
+## Phase 9: Prefect Trigger Integration
+- [ ] Create PrefectDeploymentTrigger class in alert_triggers/
+- [ ] Implement Prefect deployment invocation via API
+- [ ] Add Prefect deployment selector to Rule Form
+- [ ] Update generate_mock_alerts to handle Prefect triggers
+- [ ] Add manual "Sync Prefect Status" button to dashboard
