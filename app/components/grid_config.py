@@ -59,3 +59,55 @@ def get_history_columns() -> list[dict]:
     return base_columns + [
         {"field": "action_label", "headerName": "Action", "width": 140}
     ]
+
+
+def get_rule_columns() -> list[dict]:
+    """Columns for the Rule Settings Grid."""
+    return [
+        {
+            "field": "name",
+            "headerName": "Rule Name",
+            "sortable": True,
+            "filter": True,
+            "flex": 1,
+            "minWidth": 200,
+        },
+        {
+            "field": "category",
+            "headerName": "Category",
+            "sortable": True,
+            "filter": True,
+            "width": 130,
+        },
+        {
+            "field": "importance",
+            "headerName": "Importance",
+            "sortable": True,
+            "filter": True,
+            "width": 130,
+        },
+        {
+            "field": "period",
+            "headerName": "Period",
+            "sortable": True,
+            "filter": True,
+            "width": 120,
+        },
+        {
+            "field": "status",
+            "headerName": "Status",
+            "sortable": True,
+            "width": 120,
+            "cellStyle": {"cursor": "pointer", "fontWeight": "bold"},
+        },
+        {
+            "field": "action",
+            "headerName": "Actions",
+            "width": 100,
+            "cellStyle": {
+                "cursor": "pointer",
+                "textAlign": "center",
+                "color": "#EF4444",
+            },
+        },
+    ]

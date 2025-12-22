@@ -1,6 +1,8 @@
 import reflex as rx
+import reflex_enterprise as rxe
 from app.states.alert_state import AlertState
 from app.models import AlertRule
+from app.components.grid_config import get_rule_columns
 
 
 def clone_rule_modal() -> rx.Component:
@@ -286,100 +288,64 @@ def rule_form() -> rx.Component:
     )
 
 
-def rule_item(rule: AlertRule) -> rx.Component:
-    """Display a single rule in the list."""
-    return rx.el.div(
-        rx.el.div(
-            rx.el.div(
-                rx.el.h4(rule.name, class_name="text-base font-medium text-gray-900"),
-                rx.el.div(
-                    rx.el.span(
-                        rule.category,
-                        class_name="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200",
-                    ),
-                    rx.el.span(
-                        rule.importance.upper(),
-                        class_name=rx.match(
-                            rule.importance.lower(),
-                            (
-                                "critical",
-                                "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800",
-                            ),
-                            (
-                                "high",
-                                "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800",
-                            ),
-                            (
-                                "medium",
-                                "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800",
-                            ),
-                            (
-                                "low",
-                                "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800",
-                            ),
-                            "ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800",
-                        ),
-                    ),
-                    class_name="flex items-center",
-                ),
-                class_name="flex items-center",
-            ),
-            rx.el.p(
-                f"Frequency: {rule.period_seconds}s",
-                class_name="text-xs text-gray-500 mt-1",
-            ),
-            class_name="flex flex-col",
-        ),
-        rx.el.div(
-            rx.el.div(
-                rx.el.span(
-                    "Active", class_name="text-xs font-medium text-gray-700 mr-2"
-                ),
-                rx.el.button(
-                    rx.cond(
-                        rule.is_active,
-                        rx.icon("toggle-right", class_name="w-8 h-8 text-indigo-600"),
-                        rx.icon("toggle-left", class_name="w-8 h-8 text-gray-300"),
-                    ),
-                    on_click=AlertState.toggle_rule_active(rule.id),
-                    class_name="focus:outline-none",
-                ),
-                class_name="flex items-center mr-4",
-            ),
-            rx.el.button(
-                rx.icon("trash-2", class_name="w-4 h-4"),
-                on_click=AlertState.delete_rule(rule.id),
-                class_name="text-gray-400 hover:text-red-600 transition-colors p-2 rounded-full hover:bg-red-50",
-            ),
-            class_name="flex items-center",
-        ),
-        class_name="flex justify-between items-center p-4 bg-white border border-gray-100 rounded-xl hover:shadow-sm transition-shadow",
-    )
-
-
 def rule_list() -> rx.Component:
-    """List of existing rules."""
+    """List of existing rules using AG Grid."""
     return rx.el.div(
-        rx.el.h3("Existing Rules", class_name="text-lg font-bold text-gray-900 mb-4"),
+        rx.el.div(
+            rx.el.div(
+                rx.el.h3(
+                    "Existing Rules", class_name="text-lg font-bold text-gray-900"
+                ),
+                rx.el.p(
+                    "Manage your active alert definitions",
+                    class_name="text-sm text-gray-500",
+                ),
+                class_name="flex flex-col",
+            ),
+            rx.el.div(
+                rx.icon(
+                    "search",
+                    class_name="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2",
+                ),
+                rx.el.input(
+                    placeholder="Search rules...",
+                    on_change=AlertState.set_rules_search_query,
+                    class_name="pl-9 block w-64 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border",
+                    default_value=AlertState.rules_search_query,
+                ),
+                class_name="relative",
+            ),
+            class_name="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 border-b border-gray-100 gap-4",
+        ),
         rx.el.div(
             rx.cond(
-                AlertState.rules.length() > 0,
-                rx.foreach(AlertState.rules, rule_item),
-                rx.el.p(
-                    "No rules defined yet.",
-                    class_name="text-gray-500 text-sm italic p-4 text-center",
+                AlertState.is_grid_ready,
+                rxe.ag_grid(
+                    id="rules_grid",
+                    column_defs=get_rule_columns(),
+                    row_data=AlertState.rules_grid_data,
+                    pagination=True,
+                    pagination_page_size=20,
+                    pagination_page_size_selector=[20, 50, 100],
+                    on_cell_clicked=AlertState.handle_rules_grid_cell_clicked,
+                    width="100%",
+                    height="500px",
+                    theme="quartz",
                 ),
-            ),
-            class_name="space-y-3",
+                rx.el.div(
+                    rx.spinner(),
+                    class_name="h-[500px] w-full flex items-center justify-center bg-gray-50",
+                ),
+            )
         ),
-        class_name="mt-8",
+        class_name="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden",
     )
 
 
 def rules_layout() -> rx.Component:
     """Layout for the Rules Page."""
     return rx.el.div(
-        rx.el.div(rule_form(), class_name="w-full lg:w-1/3"),
-        rx.el.div(rule_list(), class_name="w-full lg:w-2/3"),
-        class_name="flex flex-col lg:flex-row gap-8",
+        rx.el.div(rule_form(), class_name="w-full"),
+        rx.el.div(rule_list(), class_name="w-full"),
+        class_name="flex flex-col gap-8 w-full",
     )

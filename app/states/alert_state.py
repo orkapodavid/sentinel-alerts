@@ -681,6 +681,43 @@ class AlertState(rx.State):
             )
             self.rules = list(self.rules)
 
+    rules_search_query: str = ""
+
+    @rx.event
+    def set_rules_search_query(self, value: str):
+        self.rules_search_query = value
+
+    def _serialize_rule_for_grid(self, rule: AlertRule) -> dict:
+        return {
+            "id": rule.id,
+            "name": rule.name,
+            "category": rule.category,
+            "importance": rule.importance.upper(),
+            "period": f"{rule.period_seconds}s",
+            "status": "ACTIVE" if rule.is_active else "INACTIVE",
+            "action": "Delete",
+        }
+
+    @rx.var
+    def rules_grid_data(self) -> list[dict]:
+        data = self.rules
+        if self.rules_search_query:
+            q = self.rules_search_query.lower()
+            data = [r for r in data if q in r.name.lower() or q in r.category.lower()]
+        return [self._serialize_rule_for_grid(r) for r in data]
+
+    @rx.event
+    def handle_rules_grid_cell_clicked(self, cell_event: dict):
+        col = cell_event.get("colDef", {}).get("field")
+        data = cell_event.get("data", {})
+        rule_id = data.get("id")
+        if not rule_id:
+            return
+        if col == "status":
+            self.toggle_rule_active(rule_id)
+        elif col == "action":
+            self.delete_rule(rule_id)
+
     history_importance_filter: str = "All"
     history_search_query: str = ""
     history_start_date: str = ""
