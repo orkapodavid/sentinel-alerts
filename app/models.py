@@ -33,6 +33,8 @@ class AlertRule(rx.Base):
     prefect_deployment_id: Optional[str] = None
     prefect_flow_name: Optional[str] = None
     schedule_cron: Optional[str] = None
+    last_prefect_sync: Optional[datetime] = None
+    last_prefect_state: Optional[str] = None
 
 
 class AlertEvent(rx.Base):

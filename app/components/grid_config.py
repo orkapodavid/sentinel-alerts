@@ -64,14 +64,34 @@ base_columns = [
 def get_live_columns() -> list[dict]:
     """Columns for the Live Blotter."""
     return base_columns + [
-        {"field": "action_label", "headerName": "Action", "width": 140}
+        {
+            "field": "prefect_link",
+            "headerName": "Prefect UI",
+            "width": 120,
+            "cellStyle": {
+                "cursor": "pointer",
+                "color": "#4F46E5",
+                "textDecoration": "underline",
+            },
+        },
+        {"field": "action_label", "headerName": "Action", "width": 140},
     ]
 
 
 def get_history_columns() -> list[dict]:
     """Columns for the Historical Blotter."""
     return base_columns + [
-        {"field": "action_label", "headerName": "Action", "width": 140}
+        {
+            "field": "prefect_link",
+            "headerName": "Prefect UI",
+            "width": 120,
+            "cellStyle": {
+                "cursor": "pointer",
+                "color": "#4F46E5",
+                "textDecoration": "underline",
+            },
+        },
+        {"field": "action_label", "headerName": "Action", "width": 140},
     ]
 
 
@@ -87,37 +107,39 @@ def get_rule_columns() -> list[dict]:
             "minWidth": 200,
         },
         {
-            "field": "category",
-            "headerName": "Category",
-            "sortable": True,
-            "filter": True,
-            "width": 130,
+            "field": "prefect_info",
+            "headerName": "Deployment",
+            "width": 200,
+            "cellClass": "font-mono text-xs text-gray-600",
         },
         {
-            "field": "importance",
-            "headerName": "Importance",
-            "sortable": True,
-            "filter": True,
+            "field": "last_prefect_state",
+            "headerName": "Last State",
             "width": 130,
+            "cellClassRules": {
+                "text-green-600 font-bold": "x == 'COMPLETED'",
+                "text-red-600 font-bold": "x == 'FAILED' || x == 'CRASHED'",
+                "text-blue-600 font-bold": "x == 'RUNNING'",
+            },
         },
         {
-            "field": "period",
-            "headerName": "Period",
-            "sortable": True,
-            "filter": True,
-            "width": 120,
+            "field": "last_sync",
+            "headerName": "Last Sync",
+            "width": 150,
+            "cellClass": "text-xs text-gray-500",
         },
+        {"field": "period", "headerName": "Freq", "width": 100},
         {
             "field": "status",
             "headerName": "Status",
             "sortable": True,
-            "width": 120,
+            "width": 100,
             "cellStyle": {"cursor": "pointer", "fontWeight": "bold"},
         },
         {
             "field": "action",
-            "headerName": "Actions",
-            "width": 100,
+            "headerName": "Del",
+            "width": 70,
             "cellStyle": {
                 "cursor": "pointer",
                 "textAlign": "center",

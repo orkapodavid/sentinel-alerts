@@ -51,6 +51,12 @@ def historical_blotter() -> rx.Component:
                     on_change=AlertState.set_prefect_state_filter,
                     class_name="block w-40 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border",
                 ),
+                rx.el.button(
+                    rx.icon("refresh-cw", class_name="w-4 h-4 text-gray-500"),
+                    title="Refresh Prefect States",
+                    on_click=AlertState.sync_prefect_status,
+                    class_name="p-2 border border-gray-300 rounded-md hover:bg-gray-50",
+                ),
                 rx.el.div(
                     rx.icon(
                         "search",

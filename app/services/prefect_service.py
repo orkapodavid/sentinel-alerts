@@ -76,3 +76,21 @@ class PrefectSyncService:
         except Exception as e:
             logging.exception(f"Error triggering deployment {deployment_id}: {e}")
             return None
+
+    @staticmethod
+    async def check_connection() -> bool:
+        """Check if Prefect API is accessible."""
+        if not get_client:
+            return False
+        try:
+            async with get_client() as client:
+                await client.hello()
+                return True
+        except Exception as e:
+            logging.exception(f"Error checking Prefect connection: {e}")
+            return False
+
+    @staticmethod
+    def get_ui_url(flow_run_id: str) -> str:
+        """Get the UI URL for a flow run."""
+        return f"http://localhost:4200/flow-runs/flow-run/{flow_run_id}"

@@ -126,32 +126,53 @@ def rule_form() -> rx.Component:
             rx.el.div(
                 rx.el.div(
                     rx.el.label(
-                        "Trigger Type",
+                        "Trigger Source",
                         class_name="block text-sm font-medium text-gray-700 mb-1",
                     ),
                     rx.el.select(
-                        rx.el.option("Select a trigger...", value="custom"),
+                        rx.el.option(
+                            "Run Prefect Deployment", value="prefect_deployment_trigger"
+                        ),
+                        rx.el.option("Custom Script / Other", value="custom"),
                         rx.foreach(
                             AlertState.available_triggers,
-                            lambda x: rx.el.option(x["name"], value=x["script"]),
+                            lambda x: rx.cond(
+                                x["script"] != "prefect_deployment_trigger",
+                                rx.el.option(x["name"], value=x["script"]),
+                            ),
                         ),
                         value=AlertState.rule_form_trigger_script,
                         on_change=AlertState.set_rule_form_trigger_script,
-                        class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
+                        class_name="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm mb-2",
                     ),
                     rx.cond(
                         AlertState.rule_form_trigger_script
                         == "prefect_deployment_trigger",
                         rx.el.div(
-                            rx.el.select(
-                                rx.el.option("Select Prefect Deployment...", value=""),
-                                rx.foreach(
-                                    AlertState.prefect_deployments,
-                                    lambda d: rx.el.option(d["name"], value=d["id"]),
+                            rx.el.div(
+                                rx.el.select(
+                                    rx.el.option("Select Deployment...", value=""),
+                                    rx.foreach(
+                                        AlertState.prefect_deployments,
+                                        lambda d: rx.el.option(
+                                            d["name"], value=d["id"]
+                                        ),
+                                    ),
+                                    on_change=AlertState.update_rule_form_prefect_deployment,
+                                    class_name="w-full px-3 py-2 border border-indigo-200 bg-indigo-50 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
                                 ),
-                                on_change=AlertState.update_rule_form_prefect_deployment,
-                                class_name="mt-2 w-full px-3 py-2 border border-indigo-200 bg-indigo-50 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm",
-                            )
+                                rx.el.button(
+                                    rx.icon("radio", class_name="w-4 h-4"),
+                                    on_click=AlertState.test_prefect_connection,
+                                    title="Test Prefect Connection",
+                                    class_name="p-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors",
+                                ),
+                                class_name="flex gap-2",
+                            ),
+                            rx.el.p(
+                                "Ensure a deployment is selected to enable this rule.",
+                                class_name="text-xs text-indigo-600 mt-1",
+                            ),
                         ),
                     ),
                     class_name="col-span-1",

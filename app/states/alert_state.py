@@ -174,6 +174,16 @@ class AlertState(rx.State):
         self.available_triggers = AlertRunner.discover_triggers()
 
     prefect_deployments: list[dict] = []
+    prefect_connection_status: bool = False
+
+    @rx.event
+    async def test_prefect_connection(self):
+        """Test connectivity to Prefect API."""
+        self.prefect_connection_status = await PrefectSyncService.check_connection()
+        if self.prefect_connection_status:
+            rx.toast.success("Prefect API Connected Successfully")
+        else:
+            rx.toast.error("Failed to connect to Prefect API")
 
     @rx.event
     async def fetch_prefect_deployments(self):
@@ -408,6 +418,10 @@ class AlertState(rx.State):
         ticker = event.ticker if event.ticker else "-"
         importance = event.importance if event.importance else "medium"
         category = event.category if event.category else "General"
+        prefect_link_text = "View Flow" if event.prefect_flow_run_id else ""
+        prefect_ui_url = ""
+        if event.prefect_flow_run_id:
+            prefect_ui_url = PrefectSyncService.get_ui_url(event.prefect_flow_run_id)
         return {
             "id": event.id,
             "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -429,6 +443,8 @@ class AlertState(rx.State):
             "logo_url": self._get_logo_url(ticker),
             "prefect_state": event.prefect_state or "",
             "prefect_flow_run_id": event.prefect_flow_run_id or "",
+            "prefect_link": prefect_link_text,
+            "prefect_ui_url": prefect_ui_url,
         }
 
     @rx.var
@@ -496,6 +512,10 @@ class AlertState(rx.State):
                 event_id = row_data.get("id")
                 if event_id:
                     self.open_acknowledge_modal(event_id)
+        elif col_id == "prefect_link":
+            url = row_data.get("prefect_ui_url")
+            if url:
+                return rx.redirect(url, external=True)
 
     @rx.event
     def handle_history_grid_cell_clicked(self, cell_event: dict):
@@ -505,6 +525,10 @@ class AlertState(rx.State):
         if col_id == "action_label":
             msg = row_data.get("message", "Event")
             rx.toast.info(f"Details for: {msg}")
+        elif col_id == "prefect_link":
+            url = row_data.get("prefect_ui_url")
+            if url:
+                return rx.redirect(url, external=True)
 
     @rx.var
     def live_events_count(self) -> int:
@@ -868,6 +892,12 @@ class AlertState(rx.State):
         self.rules_search_query = value
 
     def _serialize_rule_for_grid(self, rule: AlertRule) -> dict:
+        flow_info = f"{rule.prefect_flow_name}" if rule.prefect_flow_name else "-"
+        last_sync = (
+            rule.last_prefect_sync.strftime("%H:%M:%S")
+            if rule.last_prefect_sync
+            else "-"
+        )
         return {
             "id": rule.id,
             "name": rule.name,
@@ -876,6 +906,9 @@ class AlertState(rx.State):
             "period": f"{rule.period_seconds}s",
             "status": "ACTIVE" if rule.is_active else "INACTIVE",
             "action": "Delete",
+            "prefect_info": flow_info,
+            "last_prefect_state": rule.last_prefect_state or "-",
+            "last_sync": last_sync,
         }
 
     @rx.var
@@ -996,7 +1029,22 @@ class AlertState(rx.State):
                         if old != new:
                             event.prefect_state = new
                             updates += 1
+                now = datetime.utcnow()
+                for rule in self.rules:
+                    rule_events = [
+                        e
+                        for e in self.events
+                        if e.rule_id == rule.id and e.prefect_flow_run_id
+                    ]
+                    if rule_events:
+                        latest = max(
+                            rule_events, key=lambda e: e.timestamp or datetime.min
+                        )
+                        if latest.prefect_state:
+                            rule.last_prefect_state = latest.prefect_state
+                            rule.last_prefect_sync = now
                 self.events = list(self.events)
+                self.rules = list(self.rules)
                 self.log_system_event(
                     "Prefect Sync",
                     f"Synced {len(ids_to_sync)} flows. {updates} updates.",

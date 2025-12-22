@@ -101,6 +101,12 @@ def live_blotter() -> rx.Component:
                     filter_button("Critical Only", "Critical"),
                     filter_button("Market", "Market"),
                     filter_button("System", "System"),
+                    rx.el.button(
+                        rx.icon("refresh-cw", class_name="w-3 h-3 mr-1"),
+                        "Refresh States",
+                        on_click=AlertState.sync_prefect_status,
+                        class_name="ml-2 inline-flex items-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none",
+                    ),
                     class_name="flex items-center gap-2 flex-wrap",
                 ),
                 class_name="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 border-b border-gray-100 gap-4",
