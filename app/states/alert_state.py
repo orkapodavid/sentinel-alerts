@@ -388,6 +388,8 @@ class AlertState(rx.State):
             "action_label": action_label,
             "ticker": ticker,
             "logo_url": self._get_logo_url(ticker),
+            "prefect_state": event.prefect_state or "",
+            "prefect_flow_run_id": event.prefect_flow_run_id or "",
         }
 
     @rx.var

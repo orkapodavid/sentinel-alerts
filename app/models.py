@@ -2,6 +2,18 @@ import reflex as rx
 from datetime import datetime
 from typing import Optional
 
+PREFECT_STATES = [
+    "SCHEDULED",
+    "PENDING",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "CANCELLED",
+    "CRASHED",
+    "PAUSED",
+    "CANCELLING",
+]
+
 
 class AlertRule(rx.Base):
     """Data model for defining alert rules."""
@@ -18,6 +30,9 @@ class AlertRule(rx.Base):
     is_active: bool = True
     trigger_script: str = "custom"
     last_output: Optional[str] = None
+    prefect_deployment_id: Optional[str] = None
+    prefect_flow_name: Optional[str] = None
+    schedule_cron: Optional[str] = None
 
 
 class AlertEvent(rx.Base):
@@ -34,6 +49,11 @@ class AlertEvent(rx.Base):
     action_taken: Optional[str] = None
     comment: Optional[str] = None
     ticker: Optional[str] = None
+    prefect_flow_run_id: Optional[str] = None
+    prefect_state: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    retry_count: int = 0
 
 
 class AlertOutput(rx.Base):

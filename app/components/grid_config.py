@@ -30,6 +30,20 @@ base_columns = [
         "width": 120,
     },
     {
+        "field": "prefect_state",
+        "headerName": "Flow State",
+        "sortable": True,
+        "filter": True,
+        "width": 130,
+        "cellClassRules": {
+            "text-green-600 font-bold": "x == 'COMPLETED'",
+            "text-red-600 font-bold": "x == 'FAILED' || x == 'CRASHED'",
+            "text-blue-600 font-bold": "x == 'RUNNING'",
+            "text-orange-500 font-bold": "x == 'PENDING' || x == 'SCHEDULED'",
+            "text-gray-400": "x == 'CANCELLED' || x == 'PAUSED'",
+        },
+    },
+    {
         "field": "message",
         "headerName": "Message",
         "sortable": True,
