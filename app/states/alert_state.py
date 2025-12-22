@@ -183,8 +183,114 @@ class AlertState(rx.State):
             user=user,
         )
         self.system_logs.insert(0, new_log)
-        if len(self.system_logs) > 100:
-            self.system_logs = self.system_logs[:100]
+        if len(self.system_logs) > 1000:
+            self.system_logs = self.system_logs[:1000]
+
+    log_active_tab: str = "latest"
+    log_search_query: str = ""
+    log_level_filter: str = "All"
+    log_start_date: str = ""
+    log_end_date: str = ""
+    log_page: int = 1
+    log_page_size: int = 15
+
+    @rx.event
+    def set_log_active_tab(self, value: str):
+        self.log_active_tab = value
+
+    @rx.event
+    def set_log_search_query(self, value: str):
+        self.log_search_query = value
+        self.log_page = 1
+
+    @rx.event
+    def set_log_level_filter(self, value: str):
+        self.log_level_filter = value
+        self.log_page = 1
+
+    @rx.event
+    def set_log_start_date(self, value: str):
+        self.log_start_date = value
+        self.log_page = 1
+
+    @rx.event
+    def set_log_end_date(self, value: str):
+        self.log_end_date = value
+        self.log_page = 1
+
+    @rx.event
+    def reset_log_filters(self):
+        self.log_search_query = ""
+        self.log_level_filter = "All"
+        self.log_start_date = ""
+        self.log_end_date = ""
+        self.log_page = 1
+
+    @rx.var
+    def filtered_logs(self) -> list[LogEntry]:
+        logs = self.system_logs
+        if self.log_level_filter != "All":
+            logs = [l for l in logs if l.level.lower() == self.log_level_filter.lower()]
+        if self.log_search_query:
+            q = self.log_search_query.lower()
+            logs = [
+                l
+                for l in logs
+                if q in l.message.lower()
+                or q in l.type.lower()
+                or (l.ticker and q in l.ticker.lower())
+            ]
+        if self.log_start_date:
+            try:
+                s_date = datetime.strptime(self.log_start_date, "%Y-%m-%d")
+                logs = [
+                    l
+                    for l in logs
+                    if datetime.strptime(l.timestamp, "%Y-%m-%d %H:%M:%S") >= s_date
+                ]
+            except ValueError as e:
+                logging.exception(f"Error parsing start date: {e}")
+        if self.log_end_date:
+            try:
+                e_date = datetime.strptime(self.log_end_date, "%Y-%m-%d") + timedelta(
+                    days=1
+                )
+                logs = [
+                    l
+                    for l in logs
+                    if datetime.strptime(l.timestamp, "%Y-%m-%d %H:%M:%S") < e_date
+                ]
+            except ValueError as e:
+                logging.exception(f"Error parsing end date: {e}")
+        return logs
+
+    @rx.var
+    def total_filtered_logs_count(self) -> int:
+        return len(self.filtered_logs)
+
+    @rx.var
+    def total_log_pages(self) -> int:
+        return (
+            math.ceil(self.total_filtered_logs_count / self.log_page_size)
+            if self.log_page_size > 0
+            else 1
+        )
+
+    @rx.var
+    def paginated_logs(self) -> list[LogEntry]:
+        start = (self.log_page - 1) * self.log_page_size
+        end = start + self.log_page_size
+        return self.filtered_logs[start:end]
+
+    @rx.event
+    def next_log_page(self):
+        if self.log_page < self.total_log_pages:
+            self.log_page += 1
+
+    @rx.event
+    def prev_log_page(self):
+        if self.log_page > 1:
+            self.log_page -= 1
 
     def _get_rule_by_id(self, rule_id: int) -> AlertRule | None:
         for r in self.rules:
