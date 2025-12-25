@@ -94,12 +94,22 @@ def index() -> rx.Component:
                 ),
                 dashboard_stat_card(
                     "Server Status",
-                    rx.cond(AlertState.prefect_connection_status, "Online", "Offline"),
+                    rx.cond(
+                        AlertState.prefect_api_url == "",
+                        "Disabled",
+                        rx.cond(
+                            AlertState.prefect_connection_status, "Online", "Offline"
+                        ),
+                    ),
                     "server",
                     rx.cond(
-                        AlertState.prefect_connection_status,
-                        "text-green-600",
-                        "text-red-600",
+                        AlertState.prefect_api_url == "",
+                        "text-gray-400",
+                        rx.cond(
+                            AlertState.prefect_connection_status,
+                            "text-green-600",
+                            "text-red-600",
+                        ),
                     ),
                 ),
                 class_name="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-8",
@@ -154,10 +164,14 @@ def index() -> rx.Component:
 
 
 def rules_page() -> rx.Component:
-    """Rules Management Page."""
+    """Rules View Page (Read-Only)."""
     return layout(
         rx.el.div(
             rx.el.h1("Alert Rules", class_name="text-2xl font-bold text-gray-900 mb-6"),
+            rx.el.p(
+                "View existing alert rules and their Prefect integration status. Rules are managed externally in Prefect.",
+                class_name="text-gray-500 mb-6",
+            ),
             rules_layout(),
         )
     )
@@ -176,8 +190,38 @@ def events_page() -> rx.Component:
 
 
 style_content = """
-.critical-row {
+.row-critical {
     background-color: #FEF2F2 !important;
+}
+
+.row-critical .ag-cell:first-child {
+    border-left: 4px solid #DC2626 !important;
+}
+
+.row-warning {
+    background-color: #FFFBEB !important;
+}
+
+.critical-cell {
+    background-color: #FEF2F2 !important;
+}
+
+.warning-cell {
+    background-color: #FFFBEB !important;
+}
+
+.healthy-cell {
+    background-color: #F0FDF4 !important;
+    color: #166534 !important;
+}
+
+.prefect-link {
+    cursor: pointer;
+    color: #4F46E5;
+    text-decoration: underline;
+}
+
+.critical-cell-border {
     border-left: 4px solid #DC2626 !important;
 }
 
