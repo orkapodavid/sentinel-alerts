@@ -50,125 +50,6 @@ class AlertState(rx.State):
     current_time: datetime = datetime.utcnow()
     selected_event_id: int = -1
     acknowledgement_comment: str = ""
-    rule_form_name: str = ""
-    rule_form_importance: str = "medium"
-    rule_form_category: str = "General"
-    rule_form_period_value: int = 60
-    rule_form_period_unit: str = "Minutes"
-    rule_form_duration_value: int = 24
-    rule_form_duration_unit: str = "Hours"
-    rule_form_trigger_script: str = "custom"
-    rule_form_parameters: str = "{}"
-    rule_form_action_targets: list[str] = [""]
-
-    @rx.event
-    def add_action_target(self):
-        self.rule_form_action_targets.append("")
-
-    @rx.event
-    def remove_action_target(self, index: int):
-        if 0 <= index < len(self.rule_form_action_targets):
-            self.rule_form_action_targets.pop(index)
-
-    @rx.event
-    def update_action_target(self, index: int, value: str):
-        if 0 <= index < len(self.rule_form_action_targets):
-            self.rule_form_action_targets[index] = value
-
-    clone_modal_open: bool = False
-    clone_search_query: str = ""
-    clone_page: int = 1
-    clone_page_size: int = 10
-
-    @rx.event
-    def open_clone_modal(self):
-        self.clone_modal_open = True
-        self.clone_search_query = ""
-        self.clone_page = 1
-
-    @rx.event
-    def close_clone_modal(self):
-        self.clone_modal_open = False
-
-    @rx.event
-    def set_clone_search_query(self, value: str):
-        self.clone_search_query = value
-        self.clone_page = 1
-
-    @rx.var
-    def clone_filtered_rules(self) -> list[AlertRule]:
-        if not self.clone_search_query:
-            return self.rules
-        q = self.clone_search_query.lower()
-        return [r for r in self.rules if q in r.name.lower()]
-
-    @rx.var
-    def clone_total_pages(self) -> int:
-        return (
-            math.ceil(len(self.clone_filtered_rules) / self.clone_page_size)
-            if self.clone_page_size > 0
-            else 1
-        )
-
-    @rx.var
-    def clone_paginated_rules(self) -> list[AlertRule]:
-        start = (self.clone_page - 1) * self.clone_page_size
-        end = start + self.clone_page_size
-        return self.clone_filtered_rules[start:end]
-
-    @rx.event
-    def next_clone_page(self):
-        if self.clone_page < self.clone_total_pages:
-            self.clone_page += 1
-
-    @rx.event
-    def prev_clone_page(self):
-        if self.clone_page > 1:
-            self.clone_page -= 1
-
-    @rx.event
-    def select_clone_rule(self, rule_id: int):
-        rule = self._get_rule_by_id(rule_id)
-        if not rule:
-            return
-        self.rule_form_name = f"Copy of {rule.name}"
-        self.rule_form_importance = rule.importance
-        self.rule_form_category = rule.category
-        self.rule_form_trigger_script = rule.trigger_script
-        self.rule_form_parameters = rule.parameters
-        if rule.period_seconds % 86400 == 0:
-            self.rule_form_period_value = rule.period_seconds // 86400
-            self.rule_form_period_unit = "Days"
-        elif rule.period_seconds % 3600 == 0:
-            self.rule_form_period_value = rule.period_seconds // 3600
-            self.rule_form_period_unit = "Hours"
-        else:
-            self.rule_form_period_value = rule.period_seconds // 60
-            self.rule_form_period_unit = "Minutes"
-        if rule.display_duration_minutes % 1440 == 0:
-            self.rule_form_duration_value = rule.display_duration_minutes // 1440
-            self.rule_form_duration_unit = "Days"
-        elif rule.display_duration_minutes % 60 == 0:
-            self.rule_form_duration_value = rule.display_duration_minutes // 60
-            self.rule_form_duration_unit = "Hours"
-        else:
-            self.rule_form_duration_value = rule.display_duration_minutes
-            self.rule_form_duration_unit = "Minutes"
-        try:
-            config = json.loads(rule.action_config)
-            if "emails" in config and isinstance(config["emails"], list):
-                self.rule_form_action_targets = config["emails"]
-            elif "action" in config and config["action"]:
-                self.rule_form_action_targets = [config["action"]]
-            else:
-                self.rule_form_action_targets = [""]
-        except Exception as e:
-            logging.exception(f"Error parsing action config for rule cloning: {e}")
-            self.rule_form_action_targets = [""]
-        if not self.rule_form_action_targets:
-            self.rule_form_action_targets = [""]
-        self.clone_modal_open = False
-        rx.toast.success("Rule settings cloned.")
 
     @rx.event
     def fetch_available_triggers(self):
@@ -176,9 +57,9 @@ class AlertState(rx.State):
 
     prefect_deployments: list[dict] = []
     prefect_connection_status: bool = False
-    prefect_api_url: str = "http://localhost:4200/api"
-    prefect_ui_url: str = "http://localhost:4200"
-    prefect_status_message: str = "Not checked"
+    prefect_api_url: str = ""
+    prefect_ui_url: str = ""
+    prefect_status_message: str = "Prefect Not Configured"
 
     @rx.event
     def set_prefect_api_url(self, value: str):
@@ -205,20 +86,6 @@ class AlertState(rx.State):
     @rx.event
     async def fetch_prefect_deployments(self):
         self.prefect_deployments = await PrefectSyncService.get_deployments()
-
-    @rx.event
-    def update_rule_form_prefect_deployment(self, deployment_id: str):
-        """Update deployment ID in parameters JSON when dropdown changes."""
-        try:
-            params = json.loads(self.rule_form_parameters)
-            params["deployment_id"] = deployment_id
-            for d in self.prefect_deployments:
-                if d["id"] == deployment_id:
-                    params["flow_name"] = d["name"]
-                    break
-            self.rule_form_parameters = json.dumps(params, indent=2)
-        except json.JSONDecodeError as e:
-            logging.exception(f"Error updating rule parameters JSON: {e}")
 
     system_logs: list[LogEntry] = []
 
@@ -433,7 +300,11 @@ class AlertState(rx.State):
         else:
             action_label = "" if event.is_acknowledged else "ACKNOWLEDGE"
         ticker = event.ticker if event.ticker else "-"
-        importance = event.importance if event.importance else "medium"
+        importance_val = event.importance if event.importance else "medium"
+        importance_raw = importance_val.upper()
+        emoji_map = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "🟢"}
+        emoji = emoji_map.get(importance_raw, "")
+        importance_display = f"{emoji} {importance_raw}" if emoji else importance_raw
         category = event.category if event.category else "General"
         prefect_link_text = "View Flow" if event.prefect_flow_run_id else ""
         prefect_ui_url = ""
@@ -441,12 +312,15 @@ class AlertState(rx.State):
             prefect_ui_url = PrefectSyncService.get_ui_url(
                 event.prefect_flow_run_id, base_url=self.prefect_ui_url
             )
+        row_style = {}
+        is_critical = importance_raw == "CRITICAL" and (not event.is_acknowledged)
         return {
             "id": event.id,
             "timestamp": event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
             if event.timestamp
             else "",
-            "importance": importance.upper(),
+            "importance": importance_display,
+            "raw_importance": importance_raw,
             "category": category,
             "message": event.message or "",
             "status": status_text,
@@ -464,6 +338,7 @@ class AlertState(rx.State):
             "prefect_flow_run_id": event.prefect_flow_run_id or "",
             "prefect_link": prefect_link_text,
             "prefect_ui_url": prefect_ui_url,
+            "is_critical": is_critical,
         }
 
     @rx.var
@@ -813,97 +688,6 @@ class AlertState(rx.State):
         else:
             return rx.toast.info("Rules executed but no alerts triggered.")
 
-    @rx.event
-    def set_rule_form_trigger_script(self, value: str):
-        self.rule_form_trigger_script = value
-        for trigger in self.available_triggers:
-            if trigger["script"] == value:
-                self.rule_form_name = trigger["name"]
-                self.rule_form_parameters = json.dumps(
-                    trigger["default_params"], indent=2
-                )
-                break
-
-    @rx.event
-    def set_rule_form_category(self, value: str):
-        self.rule_form_category = value
-
-    @rx.event
-    def add_rule(self):
-        try:
-            json.loads(self.rule_form_parameters)
-        except json.JSONDecodeError as e:
-            logging.exception(f"Error decoding JSON parameters: {e}")
-            return rx.toast.error("Invalid JSON parameters.")
-        if not self.rule_form_name:
-            return rx.toast.error("Rule Name is required.")
-        period_mult = {"Minutes": 60, "Hours": 3600, "Days": 86400}.get(
-            self.rule_form_period_unit, 60
-        )
-        period_seconds = self.rule_form_period_value * period_mult
-        duration_mult = {"Minutes": 1, "Hours": 60, "Days": 1440}.get(
-            self.rule_form_duration_unit, 60
-        )
-        display_duration_minutes = self.rule_form_duration_value * duration_mult
-        valid_targets = [t for t in self.rule_form_action_targets if t.strip()]
-        action_config = json.dumps({"emails": valid_targets})
-        new_rule = AlertRule(
-            id=self.next_rule_id,
-            name=self.rule_form_name,
-            parameters=self.rule_form_parameters,
-            importance=self.rule_form_importance,
-            category=self.rule_form_category,
-            period_seconds=period_seconds,
-            display_duration_minutes=display_duration_minutes,
-            action_config=action_config,
-            comment="Manual Entry",
-            is_active=True,
-            trigger_script=self.rule_form_trigger_script,
-        )
-        self.next_rule_id += 1
-        self.rules.append(new_rule)
-        self.rules = list(self.rules)
-        self.log_system_event(
-            "Rule Created",
-            f"Created rule '{new_rule.name}' ({new_rule.category}) with params: {new_rule.parameters}",
-            "success",
-            user="Admin User",
-        )
-        self.rule_form_name = ""
-        self.rule_form_action_targets = [""]
-        self.rule_form_category = "General"
-        self.rule_form_trigger_script = "custom"
-        self.rule_form_parameters = "{}"
-        return rx.toast.success("Rule created.")
-
-    @rx.event
-    def delete_rule(self, rule_id: int):
-        rule = self._get_rule_by_id(rule_id)
-        if rule:
-            self.rules.remove(rule)
-            self.rules = list(self.rules)
-            self.log_system_event(
-                "Rule Deleted",
-                f"Deleted rule: {rule.name}",
-                "warning",
-                user="Admin User",
-            )
-        return rx.toast.success("Rule deleted.")
-
-    @rx.event
-    def toggle_rule_active(self, rule_id: int):
-        rule = self._get_rule_by_id(rule_id)
-        if rule:
-            rule.is_active = not rule.is_active
-            status = "activated" if rule.is_active else "deactivated"
-            self.log_system_event(
-                "Rule Updated",
-                f"Rule '{rule.name}' {status}",
-                "info",
-                user="Admin User",
-            )
-            self.rules = list(self.rules)
-
     rules_search_query: str = ""
 
     @rx.event
@@ -940,15 +724,7 @@ class AlertState(rx.State):
 
     @rx.event
     def handle_rules_grid_cell_clicked(self, cell_event: dict):
-        col = cell_event.get("colDef", {}).get("field")
-        data = cell_event.get("data", {})
-        rule_id = data.get("id")
-        if not rule_id:
-            return
-        if col == "status":
-            self.toggle_rule_active(rule_id)
-        elif col == "action":
-            self.delete_rule(rule_id)
+        pass
 
     history_importance_filter: str = "All"
     history_search_query: str = ""
@@ -1080,11 +856,20 @@ class AlertState(rx.State):
     @rx.event(background=True)
     async def on_load(self):
         """Called when page loads."""
-        os.environ["PREFECT_API_URL"] = self.prefect_api_url
         async with self:
             self.fetch_available_triggers()
-            await self.test_prefect_connection()
-            await self.fetch_prefect_deployments()
+            if self.prefect_api_url:
+                os.environ["PREFECT_API_URL"] = self.prefect_api_url
+                try:
+                    await self.test_prefect_connection()
+                    await self.fetch_prefect_deployments()
+                except Exception as e:
+                    logging.exception(
+                        f"Prefect connection check failed on startup: {e}"
+                    )
+            else:
+                self.prefect_connection_status = False
+                self.prefect_status_message = "Prefect Disabled (No API URL)"
             if not self.system_logs:
                 self.log_system_event(
                     "System Ready",
