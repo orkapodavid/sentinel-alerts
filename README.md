@@ -14,7 +14,7 @@ A full-stack **Events and Alerts Management System** built with [Reflex](https:/
 - **Event Acknowledgement**: Track and acknowledge alerts with timestamps and comments
 - **Historical Analysis**: Full audit trail with advanced filtering and CSV export
 
-### Prefect Integration
+### Prefect Integration (Optional)
 - **Deployment Triggers**: Connect alert rules to Prefect deployments for automated workflow execution
 - **State Synchronization**: Real-time flow run status tracking (RUNNING, COMPLETED, FAILED, etc.)
 - **UI Integration**: Direct links to Prefect dashboard for detailed flow monitoring
@@ -28,12 +28,15 @@ A full-stack **Events and Alerts Management System** built with [Reflex](https:/
   - Price Surge Monitor
   - Volume Spike Detector
   - Prefect Deployment Runner
+  - Health Check Monitor
 
 ### UI/UX
 - **Modern Dashboard**: Clean, responsive design with Tailwind CSS
 - **AG Grid Integration**: High-performance data tables with sorting, filtering, and pagination
 - **System Logs**: Comprehensive logging with search and filtering
 - **Settings Management**: Configure Prefect connection and UI preferences
+
+---
 
 ## 🛠️ Tech Stack
 
@@ -42,8 +45,10 @@ A full-stack **Events and Alerts Management System** built with [Reflex](https:/
 | Framework | [Reflex](https://reflex.dev) |
 | Styling | Tailwind CSS v3 |
 | Data Grid | [AG Grid](https://ag-grid.com) via reflex-enterprise |
-| Workflow | [Prefect](https://prefect.io) 3.x |
+| Workflow | [Prefect](https://prefect.io) 3.x (optional) |
 | Language | Python 3.9+ |
+
+---
 
 ## 📁 Project Structure
 
@@ -71,8 +76,11 @@ app/
     ├── memory_leak_trigger.py
     ├── price_surge_trigger.py
     ├── volume_spike_trigger.py
+    ├── health_check_trigger.py
     └── prefect_deployment_trigger.py
 
+
+---
 
 ## 🚦 Getting Started
 
@@ -110,16 +118,20 @@ app/
 
 ### Prefect Setup (Optional)
 
+Prefect integration is **disabled by default**. To enable it:
+
 1. **Start Prefect server**
    bash
    prefect server start
    
 
-2. **Configure connection**
-   - Navigate to Settings page
+2. **Configure connection in the app**
+   - Navigate to Settings page (`/settings`)
    - Set API URL: `http://localhost:4200/api`
    - Set UI URL: `http://localhost:4200`
    - Click "Test Connection"
+
+---
 
 ## 📊 Data Models
 
@@ -146,7 +158,11 @@ app/
 | prefect_flow_run_id | str | Prefect flow run UUID |
 | prefect_state | str | Current flow state |
 
+---
+
 ## 🔧 Creating Custom Triggers
+
+Create a new Python file in `app/alert_triggers/`:
 
 
 from app.alert_triggers import BaseTrigger
@@ -163,6 +179,7 @@ class MyCustomTrigger(BaseTrigger):
         return {"threshold": 100}
     
     async def check(self, params: dict) -> AlertOutput:
+        # Your monitoring logic here
         return AlertOutput(
             triggered=True,
             importance="high",
@@ -173,11 +190,66 @@ class MyCustomTrigger(BaseTrigger):
         )
 
 
+---
+
+## 🖥️ Application Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Dashboard overview with stats and live blotter |
+| `/rules` | View alert rules (read-only, managed in Prefect) |
+| `/events` | Historical events with advanced filtering |
+| `/settings` | Configure Prefect integration and appearance |
+| `/logs` | System logs with search and filtering |
+
+---
+
 ## 🔒 Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PREFECT_API_URL` | Prefect server API endpoint | `http://localhost:4200/api` |
+| `PREFECT_API_URL` | Prefect server API endpoint | *(disabled)* |
+
+---
+
+## 🤖 LLM Development Guide
+
+### Key Files to Modify
+
+1. **Adding new triggers**: Create in `app/alert_triggers/` following the `BaseTrigger` pattern
+2. **UI components**: Modify files in `app/components/`
+3. **State logic**: Update `app/states/alert_state.py`
+4. **Data models**: Extend `app/models.py`
+
+### Common Tasks
+
+**Generate mock alerts:**
+
+# Click "Generate Mock Alerts" button on dashboard
+# Or call AlertState.generate_mock_alerts() event
+
+
+**Add a new page:**
+
+# In app/app.py
+app.add_page(your_page_function, route="/your-route", on_load=AlertState.on_load)
+
+
+**Add new grid columns:**
+
+# In app/components/grid_config.py
+# Add column definition to appropriate get_*_columns() function
+
+
+### Architecture Notes
+
+- **State Management**: Uses Reflex's built-in state system with `rx.State` classes
+- **Styling**: Tailwind CSS v3 via `rx.el.*` components with `class_name` props
+- **Data Grids**: AG Grid via `reflex-enterprise` package
+- **Background Tasks**: Use `@rx.event(background=True)` for long-running operations
+- **Async Support**: All trigger checks are async, use `await` pattern
+
+---
 
 ## 📄 License
 
