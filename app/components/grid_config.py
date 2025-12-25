@@ -7,6 +7,11 @@ base_columns = [
         "sortable": True,
         "filter": True,
         "width": 170,
+        "cellClassRules": {
+            "critical-cell-border": "data.is_critical",
+            "critical-cell": "data.is_critical",
+            "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
+        },
     },
     {
         "field": "ticker",
@@ -14,7 +19,11 @@ base_columns = [
         "sortable": True,
         "filter": True,
         "width": 140,
-        "cellClassRules": {"font-bold": "data.importance == 'CRITICAL'"},
+        "cellClassRules": {
+            "font-bold": "data.raw_importance === 'CRITICAL'",
+            "critical-cell": "data.is_critical",
+            "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
+        },
     },
     {
         "field": "category",
@@ -22,13 +31,22 @@ base_columns = [
         "sortable": True,
         "filter": True,
         "width": 130,
+        "cellClassRules": {
+            "critical-cell": "data.is_critical",
+            "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
+        },
     },
     {
         "field": "importance",
         "headerName": "Level",
         "sortable": True,
         "filter": True,
-        "width": 120,
+        "width": 145,
+        "cellClassRules": {
+            "critical-cell": "data.is_critical",
+            "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
+            "healthy-cell": "data.category === 'HealthCheck' && data.raw_importance === 'LOW'",
+        },
     },
     {
         "field": "prefect_state",
@@ -42,6 +60,8 @@ base_columns = [
             "text-blue-600 font-bold": "x == 'RUNNING'",
             "text-orange-500 font-bold": "x == 'PENDING' || x == 'SCHEDULED'",
             "text-gray-400": "x == 'CANCELLED' || x == 'PAUSED'",
+            "critical-cell": "data.is_critical",
+            "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
         },
     },
     {
@@ -51,7 +71,11 @@ base_columns = [
         "filter": True,
         "flex": 1,
         "minWidth": 300,
-        "cellClassRules": {"font-bold": "data.importance == 'CRITICAL'"},
+        "cellClassRules": {
+            "font-bold": "data.raw_importance === 'CRITICAL'",
+            "critical-cell": "data.is_critical",
+            "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
+        },
     },
     {
         "field": "status",
@@ -60,8 +84,11 @@ base_columns = [
         "filter": True,
         "width": 130,
         "cellClassRules": {
-            "critical-pulse": "data.importance == 'CRITICAL' && data.status == 'Pending'",
-            "text-green-600 font-medium": "data.status == 'Acknowledged'",
+            "critical-pulse": "data.raw_importance === 'CRITICAL' && data.status === 'Pending'",
+            "text-green-600 font-medium": "data.status === 'Acknowledged'",
+            "text-green-600 font-bold": "data.category === 'HealthCheck' && data.raw_importance === 'LOW'",
+            "critical-cell": "data.is_critical",
+            "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
         },
     },
 ]
@@ -74,13 +101,21 @@ def get_live_columns() -> list[dict]:
             "field": "prefect_link",
             "headerName": "Prefect UI",
             "width": 120,
-            "cellStyle": {
-                "cursor": "pointer",
-                "color": "#4F46E5",
-                "textDecoration": "underline",
+            "cellClassRules": {
+                "prefect-link": "true",
+                "critical-cell": "data.is_critical",
+                "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
             },
         },
-        {"field": "action_label", "headerName": "Action", "width": 140},
+        {
+            "field": "action_label",
+            "headerName": "Action",
+            "width": 140,
+            "cellClassRules": {
+                "critical-cell": "data.is_critical",
+                "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
+            },
+        },
     ]
 
 
@@ -91,13 +126,21 @@ def get_history_columns() -> list[dict]:
             "field": "prefect_link",
             "headerName": "Prefect UI",
             "width": 120,
-            "cellStyle": {
-                "cursor": "pointer",
-                "color": "#4F46E5",
-                "textDecoration": "underline",
+            "cellClassRules": {
+                "prefect-link": "true",
+                "critical-cell": "data.is_critical",
+                "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
             },
         },
-        {"field": "action_label", "headerName": "Action", "width": 140},
+        {
+            "field": "action_label",
+            "headerName": "Action",
+            "width": 140,
+            "cellClassRules": {
+                "critical-cell": "data.is_critical",
+                "warning-cell": "data.raw_importance === 'HIGH' && !data.is_acknowledged",
+            },
+        },
     ]
 
 
@@ -111,6 +154,20 @@ def get_rule_columns() -> list[dict]:
             "filter": True,
             "flex": 1,
             "minWidth": 200,
+        },
+        {
+            "field": "category",
+            "headerName": "Category",
+            "width": 130,
+            "sortable": True,
+            "filter": True,
+        },
+        {
+            "field": "importance",
+            "headerName": "Importance",
+            "width": 130,
+            "sortable": True,
+            "filter": True,
         },
         {
             "field": "prefect_info",
@@ -135,21 +192,4 @@ def get_rule_columns() -> list[dict]:
             "cellClass": "text-xs text-gray-500",
         },
         {"field": "period", "headerName": "Freq", "width": 100},
-        {
-            "field": "status",
-            "headerName": "Status",
-            "sortable": True,
-            "width": 100,
-            "cellStyle": {"cursor": "pointer", "fontWeight": "bold"},
-        },
-        {
-            "field": "action",
-            "headerName": "Del",
-            "width": 70,
-            "cellStyle": {
-                "cursor": "pointer",
-                "textAlign": "center",
-                "color": "#EF4444",
-            },
-        },
     ]
