@@ -94,7 +94,7 @@ def live_blotter() -> rx.Component:
                         rx.el.option("Completed", value="COMPLETED"),
                         value=AlertState.prefect_state_filter,
                         on_change=AlertState.set_prefect_state_filter,
-                        class_name="block rounded-lg border-gray-200 text-sm font-medium text-gray-700 focus:border-indigo-500 focus:ring-indigo-500 p-1.5 border",
+                        class_name="block rounded-lg border-gray-200 text-sm font-medium text-gray-700 focus:border-indigo-500 focus:ring-indigo-500 p-1.5 border appearance-none",
                     ),
                     rx.el.div(class_name="w-px h-6 bg-gray-300 mx-2"),
                     filter_button("All Events", "All"),
