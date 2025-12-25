@@ -1,6 +1,7 @@
 import logging
 import uuid
 import os
+import httpx
 
 try:
     from prefect.client.orchestration import get_client
@@ -23,6 +24,9 @@ class PrefectSyncService:
     @staticmethod
     async def get_batch_flow_run_states(flow_run_ids: list[str]) -> dict[str, str]:
         """Fetch states for multiple flow runs."""
+        api_url = PrefectSyncService._get_api_url()
+        if not api_url:
+            return {}
         if not get_client:
             logging.warning(
                 "Prefect client not available (prefect package not installed or import failed)."
@@ -88,28 +92,33 @@ class PrefectSyncService:
 
     @staticmethod
     async def check_connection(api_url: str = None) -> dict:
-        """Check if Prefect API is accessible."""
-        if not get_client:
-            return {"success": False, "error": "Prefect package not installed"}
-        target_url = (
-            api_url
-            if api_url
-            else os.environ.get("PREFECT_API_URL", PrefectSyncService.DEFAULT_API_URL)
-        )
+        """Check if Prefect API is accessible using HTTP check."""
+        target_url = api_url if api_url else os.environ.get("PREFECT_API_URL", "")
+        if not target_url:
+            return {"success": False, "error": "Prefect API URL is not configured."}
         try:
-            os.environ["PREFECT_API_URL"] = target_url
-            async with get_client() as client:
-                await client.hello()
-                return {"success": True, "message": "Connected to Prefect"}
+            health_url = f"{target_url.rstrip('/')}/health"
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(health_url)
+                if response.status_code == 200:
+                    return {"success": True, "message": "Connected to Prefect"}
+                else:
+                    return {
+                        "success": False,
+                        "error": f"Health check failed: Status {response.status_code}",
+                    }
+        except httpx.ConnectError as e:
+            logging.exception(
+                f"Prefect connection failed: Unable to connect to {target_url}. Error: {e}"
+            )
+            return {
+                "success": False,
+                "error": f"Connection refused at {target_url}. Is the server running?",
+            }
         except Exception as e:
             logging.exception(f"Error checking Prefect connection: {e}")
             msg = str(e)
-            if "Connection refused" in msg or "ConnectError" in msg:
-                return {
-                    "success": False,
-                    "error": f"Connection refused at {target_url}. Is the server running?",
-                }
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"Connection failed: {msg}"}
 
     @staticmethod
     def get_ui_url(flow_run_id: str, base_url: str = "http://localhost:4200") -> str:
