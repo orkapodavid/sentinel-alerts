@@ -72,7 +72,7 @@ def search_controls() -> rx.Component:
             rx.el.option("Error", value="error"),
             value=AlertState.log_level_filter,
             on_change=AlertState.set_log_level_filter,
-            class_name="block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border",
+            class_name="block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border appearance-none",
         ),
         rx.el.input(
             type="date",
